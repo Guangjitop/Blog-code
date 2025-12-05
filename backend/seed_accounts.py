@@ -6,6 +6,7 @@
 import sqlite3
 import os
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 # 数据库路径
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -43,7 +44,7 @@ def seed_database():
         cursor.execute('''
             INSERT INTO auth_keys (key, name, is_enabled, created_at)
             VALUES (?, ?, 1, ?)
-        ''', (test_key, "测试种子数据授权码", datetime.now().isoformat()))
+        ''', (test_key, "测试种子数据授权码", datetime.now(ZoneInfo('Asia/Shanghai')).isoformat()))
         print(f"✓ 创建授权码: {test_key}")
     else:
         print(f"✓ 授权码已存在: {test_key}")
@@ -65,7 +66,7 @@ def seed_database():
             cursor.execute('''
                 INSERT INTO categories (name, description, owner_key, created_at)
                 VALUES (?, ?, ?, ?)
-            ''', (category_name, f"{category_name} 测试账号", test_key, datetime.now().isoformat()))
+            ''', (category_name, f"{category_name} 测试账号", test_key, datetime.now(ZoneInfo('Asia/Shanghai')).isoformat()))
             category_id = cursor.lastrowid
             print(f"✓ 创建分类: {category_name} (ID: {category_id})")
         
@@ -81,7 +82,7 @@ def seed_database():
                 cursor.execute('''
                     INSERT INTO accounts (email, password, category_id, owner_key, is_used, created_at)
                     VALUES (?, ?, ?, ?, 0, ?)
-                ''', (email, password, category_id, test_key, datetime.now().isoformat()))
+                ''', (email, password, category_id, test_key, datetime.now(ZoneInfo('Asia/Shanghai')).isoformat()))
                 added_count += 1
         
         print(f"  → 添加 {added_count} 个账号到 {category_name}")

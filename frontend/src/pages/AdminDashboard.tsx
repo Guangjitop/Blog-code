@@ -227,7 +227,7 @@ export default function AdminDashboard() {
                     </TableCell>
                     <TableCell>{key.account_count}</TableCell>
                     <TableCell>{key.category_count}</TableCell>
-                    <TableCell>{new Date(key.created_at).toLocaleString()}</TableCell>
+                    <TableCell>{new Date(key.created_at).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
                         <Button

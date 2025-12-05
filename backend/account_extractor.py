@@ -9,6 +9,7 @@ import json
 import time
 import requests
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 # ==================== 配置项 ====================
@@ -24,7 +25,7 @@ USES_PER_CODE = 3                 # 每个激活码使用次数
 
 def log(message: str):
     """打印带时间戳的日志"""
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    timestamp = datetime.now(ZoneInfo('Asia/Shanghai')).strftime("%Y-%m-%d %H:%M:%S")
     print(f"[{timestamp}] {message}")
 
 

@@ -10,6 +10,7 @@ import os
 import json
 from datetime import datetime
 from typing import List, Dict, Optional
+from zoneinfo import ZoneInfo
 
 # 支持的音频格式
 SUPPORTED_FORMATS = {'mp3', 'flac', 'wav', 'ogg', 'aac', 'm4a', 'webm'}
@@ -101,7 +102,7 @@ def generate_playlist_json(tracks: List[Dict[str, str]], output_path: str) -> No
     """
     playlist = {
         'version': '1.0',
-        'generatedAt': datetime.utcnow().isoformat() + 'Z',
+        'generatedAt': datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(),
         'tracks': tracks
     }
     

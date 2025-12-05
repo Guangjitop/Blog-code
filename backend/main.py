@@ -5,6 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, EmailStr
 from typing import List, Optional
 from datetime import datetime
+from zoneinfo import ZoneInfo
 import sqlite3
 import uvicorn
 from contextlib import contextmanager
@@ -249,7 +250,7 @@ def create_auth_key(name: Optional[str] = None, custom_key: Optional[str] = None
         cursor.execute('''
             INSERT INTO auth_keys (key, name, is_enabled, created_at)
             VALUES (?, ?, 1, ?)
-        ''', (key, name, datetime.now().isoformat()))
+        ''', (key, name, datetime.now(ZoneInfo('Asia/Shanghai')).isoformat()))
         conn.commit()
         return {"id": cursor.lastrowid, "key": key, "name": name, "is_enabled": True}
 
@@ -486,7 +487,7 @@ def admin_add_category(
         cursor.execute('''
             INSERT INTO categories (name, description, owner_key, created_at)
             VALUES (?, ?, ?, ?)
-        ''', (name, description, key, datetime.now().isoformat()))
+        ''', (name, description, key, datetime.now(ZoneInfo('Asia/Shanghai')).isoformat()))
         
         conn.commit()
         category_id = cursor.lastrowid
@@ -632,7 +633,7 @@ def admin_add_account(
         cursor.execute('''
             INSERT INTO accounts (email, password, category_id, owner_key, is_used, is_enabled, created_at)
             VALUES (?, ?, ?, ?, 0, 1, ?)
-        ''', (email, password, category_id, key, datetime.now().isoformat()))
+        ''', (email, password, category_id, key, datetime.now(ZoneInfo('Asia/Shanghai')).isoformat()))
         
         conn.commit()
         account_id = cursor.lastrowid
@@ -646,7 +647,7 @@ def admin_add_account(
                 "category_id": category_id,
                 "category_name": category_name,
                 "is_used": False,
-                "created_at": datetime.now().isoformat()
+                "created_at": datetime.now(ZoneInfo('Asia/Shanghai')).isoformat()
             }
         }
 
@@ -685,7 +686,7 @@ def admin_batch_add_accounts(request: BatchAddRequest):
                 cursor.execute('''
                     INSERT INTO accounts (email, password, category_id, owner_key, is_used, is_enabled, created_at)
                     VALUES (?, ?, ?, ?, 0, 1, ?)
-                ''', (account.email, account.password, category_id, key, datetime.now().isoformat()))
+                ''', (account.email, account.password, category_id, key, datetime.now(ZoneInfo('Asia/Shanghai')).isoformat()))
                 success_count += 1
             except Exception:
                 fail_count += 1
@@ -968,7 +969,7 @@ def backup_accounts(key: str = Depends(get_valid_key)):
         return {
             "success": True,
             "total": len(accounts),
-            "exported_at": datetime.now().isoformat(),
+            "exported_at": datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(),
             "accounts": accounts
         }
 
@@ -1001,7 +1002,7 @@ def backup_categories(key: str = Depends(get_valid_key)):
         return {
             "success": True,
             "total": len(categories),
-            "exported_at": datetime.now().isoformat(),
+            "exported_at": datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(),
             "categories": categories
         }
 
@@ -1059,7 +1060,7 @@ def backup_full(key: str = Depends(get_valid_key)):
         
         return {
             "success": True,
-            "exported_at": datetime.now().isoformat(),
+            "exported_at": datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(),
             "summary": {
                 "total_categories": len(categories),
                 "total_accounts": len(accounts)
@@ -1082,7 +1083,7 @@ def backup_database(admin_token: Optional[str] = Cookie(None)):
     return FileResponse(
         DB_NAME,
         media_type="application/x-sqlite3",
-        filename=f"accounts_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
+        filename=f"accounts_backup_{datetime.now(ZoneInfo('Asia/Shanghai')).strftime('%Y%m%d_%H%M%S')}.db"
     )
 
 # ... api/stats, api/get-account, api/query, api/query/password are already fine.
@@ -1143,7 +1144,7 @@ def get_account(
     accounts_list = []  # 存储账号信息 (category_name, email, password)
     with get_db() as conn:
         cursor = conn.cursor()
-        used_at = datetime.now().isoformat()
+        used_at = datetime.now(ZoneInfo('Asia/Shanghai')).isoformat()
         
         for cat_id, cnt in requests:
             if cnt <= 0: continue
