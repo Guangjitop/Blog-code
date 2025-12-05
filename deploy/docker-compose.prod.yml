@@ -14,8 +14,8 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - ../Home:/usr/share/nginx/html:ro
-      # SSL证书（如需启用HTTPS，取消下面注释）
-      # - ./ssl:/etc/nginx/ssl:ro
+      # SSL证书（HTTPS 已启用）
+      - ./ssl:/etc/nginx/ssl:ro
     logging:
       driver: "json-file"
       options:
