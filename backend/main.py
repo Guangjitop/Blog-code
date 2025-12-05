@@ -1144,7 +1144,9 @@ def get_account(
     accounts_list = []  # 存储账号信息 (category_name, email, password)
     with get_db() as conn:
         cursor = conn.cursor()
-        used_at = datetime.now(ZoneInfo('Asia/Shanghai')).isoformat()
+        beijing_time = datetime.now(ZoneInfo('Asia/Shanghai'))
+        used_at = beijing_time.isoformat()  # 用于数据库存储
+        used_at_display = beijing_time.strftime('%Y-%m-%d %H:%M:%S')  # 用于显示
         
         for cat_id, cnt in requests:
             if cnt <= 0: continue
@@ -1204,7 +1206,7 @@ def get_account(
                 cat_section += f"\n账号：{email}\n密码：{password}"
             account_lines.append(cat_section)
         
-        footer = f"时间：{used_at.replace('T', ' ')[:19]}"
+        footer = f"时间：{used_at_display}"
         
         result = header + "\n\n" + "\n\n".join(account_lines) + "\n\n" + footer
         
