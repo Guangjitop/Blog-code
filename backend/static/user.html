@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户面板 - 账号管理系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #000000;
+            color: #e2e8f0;
+            overflow-x: hidden;
+            perspective: 1000px;
+        }
+
+        /* Dynamic Background */
+        .bg-animate {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            background:
+                radial-gradient(circle at 15% 50%, rgba(16, 185, 129, 0.2), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(59, 130, 246, 0.2), transparent 25%);
+            filter: blur(60px);
+            animation: bgPulse 10s ease-in-out infinite alternate;
+        }
+
+        @keyframes bgPulse {
+            0% {
+                transform: scale(1);
+                opacity: 0.8;
+            }
+
+            100% {
+                transform: scale(1.1);
+                opacity: 1;
+            }
+        }
+
+        /* Glassmorphism & 3D Cards */
+        .glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .glass-card {
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow:
+                0 4px 6px -1px rgba(0, 0, 0, 0.1),
+                0 2px 4px -1px rgba(0, 0, 0, 0.06),
+                inset 0 0 20px rgba(255, 255, 255, 0.02);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-style: preserve-3d;
+        }
+
+        .glass-card:hover {
+            transform: translateY(-5px) scale(1.02) rotateX(2deg);
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+            border-color: rgba(255, 255, 255, 0.15);
+            box-shadow:
+                0 20px 40px -5px rgba(0, 0, 0, 0.3),
+                0 0 15px rgba(16, 185, 129, 0.2);
+        }
+
+        /* Buttons */
+        .btn {
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+        }
+
+        .btn-warning:hover {
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
+            transform: translateY(-2px);
+        }
+
+        /* Inputs */
+        input,
+        select {
+            background: rgba(15, 23, 42, 0.6) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            color: #e2e8f0 !important;
+            transition: all 0.3s ease;
+        }
+
+        input:focus,
+        select:focus {
+            border-color: #10b981 !important;
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2) !important;
+            background: rgba(15, 23, 42, 0.8) !important;
+            outline: none;
+        }
+
+        /* Tab Navigation */
+        .nav-pill {
+            position: relative;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .nav-pill.active {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.05);
+        }
+
+        .nav-pill.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 20px;
+            height: 2px;
+            background: #10b981;
+            box-shadow: 0 0 10px #10b981;
+            border-radius: 2px;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .block {
+            display: block;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 1rem 1.5rem;
+            background: rgba(16, 185, 129, 0.9);
+            backdrop-filter: blur(10px);
+            color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transform: translateY(-20px);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            z-index: 50;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen selection:bg-emerald-500 selection:text-white">
+    <div class="bg-animate"></div>
+
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <!-- Header -->
+        <header class="mb-12 flex justify-between items-center">
+            <div class="relative group">
+                <div
+                    class="absolute -inset-1 bg-gradient-to-r from-emerald-600 to-teal-600 rounded-lg blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200">
+                </div>
+                <div class="relative">
+                    <h1
+                        class="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-300 mb-2 tracking-tight">
+                        用户面板
+                    </h1>
+                    <p class="text-slate-400 text-sm font-light tracking-wide">便捷管理您的个人资源</p>
+                </div>
+            </div>
+            <a href="/user/logout"
+                class="glass px-4 py-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                退出登录
+            </a>
+        </header>
+
+        <!-- Tabs -->
+        <div class="flex justify-center mb-10">
+            <div class="glass rounded-full p-1.5 flex gap-2 overflow-x-auto max-w-full">
+                <button onclick="showTab('stats')"
+                    class="nav-pill px-6 py-2.5 rounded-full font-medium text-sm text-slate-400 hover:text-slate-200 active"
+                    id="btn-stats">
+                    📊 数据统计
+                </button>
+                <button onclick="showTab('categories')"
+                    class="nav-pill px-6 py-2.5 rounded-full font-medium text-sm text-slate-400 hover:text-slate-200"
+                    id="btn-categories">
+                    📁 分类管理
+                </button>
+                <button onclick="showTab('accounts')"
+                    class="nav-pill px-6 py-2.5 rounded-full font-medium text-sm text-slate-400 hover:text-slate-200"
+                    id="btn-accounts">
+                    👤 账号管理
+                </button>
+                <button onclick="showTab('get')"
+                    class="nav-pill px-6 py-2.5 rounded-full font-medium text-sm text-slate-400 hover:text-slate-200"
+                    id="btn-get">
+                    🎯 获取账号
+                </button>
+            </div>
+        </div>
+
+        <!-- Stats Tab -->
+        <div id="tab-stats" class="tab-content block">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 perspective-1000">
+                <div class="glass-card rounded-2xl p-6 relative overflow-hidden group">
+                    <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-2">总账号</h3>
+                    <p class="text-4xl font-bold text-white tracking-tight" id="totalAccounts">-</p>
+                    <div
+                        class="absolute -right-6 -bottom-6 opacity-10 group-hover:opacity-20 transition-opacity transform rotate-12 group-hover:scale-110 duration-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-32 w-32 text-white" fill="none"
+                            viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
+                                d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                        </svg>
+                    </div>
+                </div>
+                <div class="glass-card rounded-2xl p-6 relative overflow-hidden group">
+                    <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-2">已使用</h3>
+                    <p class="text-4xl font-bold text-amber-400 tracking-tight" id="usedAccounts">-</p>
+                    <div
+                        class="absolute -right-6 -bottom-6 opacity-10 group-hover:opacity-20 transition-opacity transform rotate-12 group-hover:scale-110 duration-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-32 w-32 text-amber-400" fill="none"
+                            viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
+                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                </div>
+                <div class="glass-card rounded-2xl p-6 relative overflow-hidden group">
+                    <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-2">未使用</h3>
+                    <p class="text-4xl font-bold text-emerald-400 tracking-tight" id="unusedAccounts">-</p>
+                    <div
+                        class="absolute -right-6 -bottom-6 opacity-10 group-hover:opacity-20 transition-opacity transform rotate-12 group-hover:scale-110 duration-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-32 w-32 text-emerald-400" fill="none"
+                            viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
+                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                </div>
+                <div class="glass-card rounded-2xl p-6 relative overflow-hidden group">
+                    <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-2">分类数</h3>
+                    <p class="text-4xl font-bold text-purple-400 tracking-tight" id="categoryCount">-</p>
+                    <div
+                        class="absolute -right-6 -bottom-6 opacity-10 group-hover:opacity-20 transition-opacity transform rotate-12 group-hover:scale-110 duration-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-32 w-32 text-purple-400" fill="none"
+                            viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
+                                d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Categories Tab -->
+        <div id="tab-categories" class="tab-content hidden">
+            <div class="glass rounded-2xl overflow-hidden shadow-2xl p-6">
+                <div class="flex flex-col md:flex-row gap-4 mb-6 items-end">
+                    <div class="flex-1 w-full">
+                        <label class="block text-slate-400 text-sm font-medium mb-2">分类名称</label>
+                        <input type="text" id="catName" placeholder="输入分类名称"
+                            class="w-full px-4 py-2.5 rounded-lg border border-slate-700 focus:border-emerald-500">
+                    </div>
+                    <div class="flex-1 w-full">
+                        <label class="block text-slate-400 text-sm font-medium mb-2">描述</label>
+                        <input type="text" id="catDesc" placeholder="可选描述"
+                            class="w-full px-4 py-2.5 rounded-lg border border-slate-700 focus:border-emerald-500">
+                    </div>
+                    <button onclick="addCategory()"
+                        class="btn btn-primary px-6 py-2.5 rounded-lg font-medium whitespace-nowrap flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        添加分类
+                    </button>
+                </div>
+
+                <div class="overflow-x-auto rounded-xl border border-slate-700/50">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-800/50 text-slate-300 text-sm uppercase tracking-wider">
+                                <th class="p-4 font-medium border-b border-slate-700/50">ID</th>
+                                <th class="p-4 font-medium border-b border-slate-700/50">名称</th>
+                                <th class="p-4 font-medium border-b border-slate-700/50">描述</th>
+                                <th class="p-4 font-medium border-b border-slate-700/50">账号数</th>
+                                <th class="p-4 font-medium border-b border-slate-700/50 text-right">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="catList" class="divide-y divide-slate-700/50 text-slate-300"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Accounts Tab -->
+        <div id="tab-accounts" class="tab-content hidden">
+            <div class="glass rounded-2xl overflow-hidden shadow-2xl p-6">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 items-end">
+                    <div>
+                        <label class="block text-slate-400 text-sm font-medium mb-2">邮箱</label>
+                        <input type="email" id="accEmail" placeholder="账号邮箱"
+                            class="w-full px-4 py-2.5 rounded-lg border border-slate-700 focus:border-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 text-sm font-medium mb-2">密码</label>
+                        <input type="text" id="accPwd" placeholder="账号密码"
+                            class="w-full px-4 py-2.5 rounded-lg border border-slate-700 focus:border-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 text-sm font-medium mb-2">分类</label>
+                        <select id="accCat"
+                            class="w-full px-4 py-2.5 rounded-lg border border-slate-700 focus:border-emerald-500">
+                            <option value="">未分类</option>
+                        </select>
+                    </div>
+                    <button onclick="addAccount()"
+                        class="btn btn-primary px-6 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        添加账号
+                    </button>
+                </div>
+
+                <div class="overflow-x-auto rounded-xl border border-slate-700/50">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-800/50 text-slate-300 text-sm uppercase tracking-wider">
+                                <th class="p-4 font-medium border-b border-slate-700/50">ID</th>
+                                <th class="p-4 font-medium border-b border-slate-700/50">邮箱</th>
+                                <th class="p-4 font-medium border-b border-slate-700/50">密码</th>
+                                <th class="p-4 font-medium border-b border-slate-700/50">分类</th>
+                                <th class="p-4 font-medium border-b border-slate-700/50">状态</th>
+                                <th class="p-4 font-medium border-b border-slate-700/50 text-right">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="accList" class="divide-y divide-slate-700/50 text-slate-300"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Get Account Tab -->
+        <div id="tab-get" class="tab-content hidden">
+            <div class="glass rounded-2xl overflow-hidden shadow-2xl p-8 max-w-2xl mx-auto">
+                <div class="text-center mb-8">
+                    <div
+                        class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                    </div>
+                    <h2 class="text-2xl font-bold text-white mb-2">获取新账号</h2>
+                    <p class="text-slate-400">选择一个分类，系统将自动为您分配一个未使用的账号</p>
+                </div>
+
+                <div class="space-y-6">
+                    <div>
+                        <label class="block text-slate-400 text-sm font-medium mb-2">选择分类</label>
+                        <select id="getCat"
+                            class="w-full px-4 py-3 rounded-xl border border-slate-700 focus:border-emerald-500 bg-slate-800/50 text-lg">
+                            <option value="">全部分类</option>
+                        </select>
+                    </div>
+                    <button onclick="getAccount()"
+                        class="btn btn-primary w-full py-4 rounded-xl font-bold text-lg shadow-lg hover:shadow-emerald-500/30 flex items-center justify-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        立即获取
+                    </button>
+
+                    <div id="getResult"
+                        class="hidden mt-6 p-6 rounded-xl bg-slate-900/80 border border-slate-700 font-mono text-sm text-emerald-400 whitespace-pre-line leading-relaxed shadow-inner">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        const KEY = document.cookie.split('; ').find(r => r.startsWith('user_key='))?.split('=')[1] || '';
+        if (!KEY || KEY === 'undefined' || KEY === 'null') {
+            window.location.replace('/user?error=no_key');
+            throw new Error('未登录');
+        }
+
+        function api(url) { 
+            const separator = url.includes('?') ? '&' : '?';
+            return url + separator + 'key=' + encodeURIComponent(KEY); 
+        }
+
+        function showTab(name) {
+            document.querySelectorAll('.nav-pill').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => {
+                c.classList.add('hidden');
+                c.classList.remove('block');
+            });
+
+            document.getElementById('btn-' + name).classList.add('active');
+            const content = document.getElementById('tab-' + name);
+            content.classList.remove('hidden');
+            content.classList.add('block');
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3000);
+        }
+
+        async function loadStats() {
+            try {
+                const res = await fetch(api('/api/stats'));
+                if (res.status === 401) {
+                    document.cookie = 'user_key=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+                    window.location.replace('/user?error=invalid_key');
+                    return;
+                }
+                const d = await res.json();
+                document.getElementById('totalAccounts').textContent = d.total_accounts;
+                document.getElementById('usedAccounts').textContent = d.used_accounts;
+                document.getElementById('unusedAccounts').textContent = d.unused_accounts;
+                document.getElementById('categoryCount').textContent = d.category_count;
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function loadCategories() {
+            const res = await fetch(api('/admin/categories'));
+            const cats = await res.json();
+            const tbody = document.getElementById('catList');
+            const sel1 = document.getElementById('accCat');
+            const sel2 = document.getElementById('getCat');
+
+            sel1.innerHTML = '<option value="">未分类</option>' + cats.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+            sel2.innerHTML = '<option value="">全部分类</option>' + cats.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+
+            if (cats.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-slate-500">暂无分类</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = cats.map(c => `
+                <tr class="hover:bg-slate-800/30 transition-colors">
+                    <td class="p-4 font-mono text-purple-400">#${c.id}</td>
+                    <td class="p-4 font-medium text-white">${c.name}</td>
+                    <td class="p-4 text-slate-400">${c.description || '-'}</td>
+                    <td class="p-4"><span class="bg-slate-700 px-2 py-1 rounded text-xs">${c.account_count}</span></td>
+                    <td class="p-4 text-right">
+                        <button class="p-2 rounded-lg hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors" onclick="delCat(${c.id})" title="删除">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function loadAccounts() {
+            const res = await fetch(api('/admin/accounts'));
+            const accs = await res.json();
+            const tbody = document.getElementById('accList');
+
+            if (accs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-slate-500">暂无账号</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = accs.map(a => `
+                <tr class="hover:bg-slate-800/30 transition-colors">
+                    <td class="p-4 font-mono text-slate-500">#${a.id}</td>
+                    <td class="p-4 font-medium text-slate-200">${a.email}</td>
+                    <td class="p-4 font-mono text-slate-400">******</td>
+                    <td class="p-4"><span class="bg-purple-500/20 text-purple-300 px-2 py-1 rounded text-xs">${a.category_name || '未分类'}</span></td>
+                    <td class="p-4">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${a.is_used ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}">
+                            ${a.is_used ? '已使用' : '未使用'}
+                        </span>
+                    </td>
+                    <td class="p-4 text-right flex justify-end gap-2">
+                        <button class="p-2 rounded-lg hover:bg-amber-500/20 text-slate-400 hover:text-amber-400 transition-colors" onclick="resetAcc(${a.id})" title="重置">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                        </button>
+                        <button class="p-2 rounded-lg hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors" onclick="delAcc(${a.id})" title="删除">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function addCategory() {
+            const name = document.getElementById('catName').value;
+            const desc = document.getElementById('catDesc').value;
+            if (!name) { showToast('请输入分类名称'); return; }
+
+            try {
+                const res = await fetch(api('/admin/categories/add') + '&name=' + encodeURIComponent(name) + '&description=' + encodeURIComponent(desc));
+                const d = await res.json();
+                if (d.success) {
+                    showToast('添加成功');
+                    document.getElementById('catName').value = '';
+                    document.getElementById('catDesc').value = '';
+                    loadCategories();
+                    loadStats();
+                } else {
+                    showToast(d.detail || '添加失败');
+                }
+            } catch (e) {
+                showToast('请求失败');
+            }
+        }
+
+        async function delCat(id) {
+            if (!confirm('确定删除？')) return;
+            await fetch(api('/admin/categories/delete') + '&id=' + id);
+            showToast('删除成功');
+            loadCategories();
+            loadStats();
+        }
+
+        async function addAccount() {
+            const email = document.getElementById('accEmail').value;
+            const pwd = document.getElementById('accPwd').value;
+            const cat = document.getElementById('accCat').value;
+            if (!email || !pwd) { showToast('请填写邮箱和密码'); return; }
+
+            let url = api('/admin/accounts/add') + '&email=' + encodeURIComponent(email) + '&password=' + encodeURIComponent(pwd);
+            if (cat) url += '&category_id=' + cat;
+
+            try {
+                const res = await fetch(url);
+                const d = await res.json();
+                if (d.success) {
+                    showToast('添加成功');
+                    document.getElementById('accEmail').value = '';
+                    document.getElementById('accPwd').value = '';
+                    loadAccounts();
+                    loadStats();
+                    loadCategories();
+                } else {
+                    showToast(d.detail || '添加失败');
+                }
+            } catch (e) {
+                showToast('请求失败');
+            }
+        }
+
+        async function delAcc(id) {
+            if (!confirm('确定删除？')) return;
+            await fetch(api('/admin/accounts/delete') + '&id=' + id);
+            showToast('删除成功');
+            loadAccounts();
+            loadStats();
+            loadCategories();
+        }
+
+        async function resetAcc(id) {
+            await fetch(api('/admin/accounts/reset') + '&id=' + id);
+            showToast('重置成功');
+            loadAccounts();
+            loadStats();
+        }
+
+        async function getAccount() {
+            const cat = document.getElementById('getCat').value;
+            let url = api('/api/get-account');
+            if (cat) url += '&category_id=' + cat;
+
+            try {
+                const res = await fetch(url);
+                const text = await res.text();
+                const resultBox = document.getElementById('getResult');
+                resultBox.textContent = text;
+                resultBox.classList.remove('hidden');
+                loadAccounts();
+                loadStats();
+            } catch (e) {
+                showToast('获取失败');
+            }
+        }
+
+        // Initialize
+        loadStats();
+        loadCategories();
+        loadAccounts();
+    </script>
+</body>
+
+</html>

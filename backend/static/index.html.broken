@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>账号管理系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.global.prod.js"></script>
+    <script src="https://unpkg.com/axios@1.6.7/dist/axios.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #000000;
+            color: #e2e8f0;
+            overflow-x: hidden;
+            perspective: 1000px;
+        }
+
+        /* Dynamic Background */
+        .bg-animate {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            background: 
+                radial-gradient(circle at 15% 50%, rgba(76, 29, 149, 0.4), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(14, 165, 233, 0.4), transparent 25%);
+            filter: blur(60px);
+            animation: bgPulse 10s ease-in-out infinite alternate;
+        }
+
+        @keyframes bgPulse {
+            0% { transform: scale(1); opacity: 0.8; }
+            100% { transform: scale(1.1); opacity: 1; }
+        }
+
+        /* Glassmorphism & 3D Cards */
+        .glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .glass-card {
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 
+                0 4px 6px -1px rgba(0, 0, 0, 0.1), 
+                0 2px 4px -1px rgba(0, 0, 0, 0.06),
+                inset 0 0 20px rgba(255, 255, 255, 0.02);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-style: preserve-3d;
+        }
+
+        .glass-card:hover {
+            transform: translateY(-5px) scale(1.02) rotateX(2deg);
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+            border-color: rgba(255, 255, 255, 0.15);
+            box-shadow: 
+                0 20px 40px -5px rgba(0, 0, 0, 0.3),
+                0 0 15px rgba(59, 130, 246, 0.2);
+        }
+
+        /* Buttons with Commercial Gradient */
+        .btn-primary {
+            background: linear-gradient(135deg, #6366f1 0%, #3b82f6 50%, #0ea5e9 100%);
+            background-size: 200% 200%;
+            animation: gradientShift 3s ease infinite;
+            border: none;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: 0.5s;
+        }
+
+        .btn-primary:hover::before {
+            left: 100%;
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
+            transform: translateY(-2px);
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Other Buttons */
+        .btn-danger {
+            background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+            transition: all 0.3s ease;
+        }
+        .btn-danger:hover {
+            box-shadow: 0 0 15px rgba(244, 63, 94, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            transition: all 0.3s ease;
+        }
+        .btn-success:hover {
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.5);
+            transform: translateY(-2px);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+        [v-cloak] { display: none; }
+        
+        /* Text Gradients */
+        .text-gradient {
+            background: linear-gradient(to right, #c084fc, #6366f1, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-size: 200% auto;
+            animation: textShine 5s linear infinite;
+        }
+
+        @keyframes textShine {
+            to { background-position: 200% center; }
+        }
+
+        /* Inputs */
+        input, select {
+            background: rgba(15, 23, 42, 0.6) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            transition: all 0.3s ease;
+        }
+        input:focus, select:focus {
+            border-color: #6366f1 !important;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2) !important;
+            background: rgba(15, 23, 42, 0.8) !important;
+        }
+
+        /* Tab Navigation */
+        .nav-pill {
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        .nav-pill.active {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.05);
+        }
+        .nav-pill.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 20px;
+            height: 2px;
+            background: #6366f1;
+            box-shadow: 0 0 10px #6366f1;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen bg-black selection:bg-blue-500 selection:text-white">
+                <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div class="flex items-center gap-4 w-full md:w-auto">
+                        <h2 class="text-xl font-semibold text-slate-200">账号列表</h2>
+                        <select v-model="filterCategoryId" @change="fetchAccounts"
+                            class="bg-slate-800/50 border border-slate-600 rounded-lg px-3 py-1.5 text-sm">
+                            <option :value="null">全部分类</option>
+                            <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+                        </select>
+                    </div>
+                    <div class="flex gap-3 w-full md:w-auto">
+                        <button @click="showAddModal = true"
+                            class="btn-primary px-4 py-2 rounded-lg text-white font-medium flex items-center justify-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 4v16m8-8H4" />
+                            </svg>
+                            添加账号
+                        </button>
+                        <button @click="resetAllAccounts"
+                            class="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 font-medium transition-colors">重置所有</button>
+                    </div>
+                </div>
+                <!-- 搜索框 -->
+                <div class="flex items-center gap-2 w-full md:w-96">
+                    <div class="relative flex-1">
+                        <svg xmlns="http://www.w3.org/2000/svg"
+                            class="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"
+                            fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        <input v-model="searchKeyword" @input="filterAccounts" type="text" placeholder="搜索邮箱账号..."
+                            class="w-full bg-slate-800/50 border border-slate-600 rounded-lg pl-10 pr-10 py-2 text-sm focus:outline-none focus:border-blue-500">
+                        <button v-if="searchKeyword" @click="searchKeyword = ''; filterAccounts()"
+                            class="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-200">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-800/50 text-slate-300 text-sm uppercase tracking-wider">
+                            <th class="p-4 font-medium border-b border-slate-700/50">ID</th>
+                            <th class="p-4 font-medium border-b border-slate-700/50">分类</th>
+                            <th class="p-4 font-medium border-b border-slate-700/50">邮箱账号</th>
+                            <th class="p-4 font-medium border-b border-slate-700/50">密码</th>
+                            <th class="p-4 font-medium border-b border-slate-700/50">状态</th>
+                            <th class="p-4 font-medium border-b border-slate-700/50">创建时间</th>
+                            <th class="p-4 font-medium border-b border-slate-700/50">使用时间</th>
+                            <th class="p-4 font-medium border-b border-slate-700/50 text-right">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700/50">
+                        <tr v-if="loading" class="animate-pulse">
+                            <td colspan="8" class="p-8 text-center text-slate-400">正在加载数据...</td>
+                        </tr>
+                        <tr v-else-if="filteredAccounts.length === 0">
+                            <td colspan="8" class="p-8 text-center text-slate-400">{{ searchKeyword ? '未找到匹配的账号' :
+                                '暂无账号数据' }}</td>
+                        </tr>
+                        <tr v-else v-for="account in filteredAccounts" :key="account.id"
+                            class="hover:bg-slate-800/30 transition-colors group">
+                            <td class="p-4 text-slate-400 font-mono text-sm">#{{ account.id }}</td>
+                            <td class="p-4"><span
+                                    class="px-2 py-1 rounded-full text-xs bg-purple-500/20 text-purple-300">{{
+                                    account.category_name || '未分类' }}</span></td>
+                            <td class="p-4">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-medium text-slate-200">{{ account.email }}</span>
+                                    <button @click="copyToClipboard(account.email)"
+                                        class="text-slate-400 hover:text-blue-400 opacity-0 group-hover:opacity-100 transition-all"
+                                        title="复制">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none"
+                                            viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </td>
+                            <td class="p-4">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-medium text-slate-200 font-mono">{{ account.password }}</span>
+                                    <button @click="copyToClipboard(account.password)"
+                                        class="text-slate-400 hover:text-blue-400 opacity-0 group-hover:opacity-100 transition-all"
+                                        title="复制">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none"
+                                            viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </td>
+                            <td class="p-4">
+                                <span v-if="account.is_used"
+                                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">已使用</span>
+                                <span v-else
+                                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">未使用</span>
+                            </td>
+                            <td class="p-4 text-slate-400 text-sm">{{ formatDate(account.created_at) }}</td>
+                            <td class="p-4 text-sm">
+                                <span v-if="account.used_at" class="text-amber-400">{{ formatDate(account.used_at)
+                                    }}</span>
+                                <span v-else class="text-slate-500">-</span>
+                            </td>
+                            <td class="p-4 text-right">
+                                <div class="flex justify-end gap-2">
+                                    <button v-if="account.is_used" @click="resetAccount(account.id)"
+                                        class="p-1.5 rounded-lg hover:bg-slate-700 text-amber-400 hover:text-amber-300 transition-colors"
+                                        title="重置状态">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none"
+                                            viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                        </svg>
+                                    </button>
+                                    <button @click="deleteAccount(account.id)"
+                                        class="p-1.5 rounded-lg hover:bg-red-500/10 text-slate-400 hover:text-red-400 transition-colors"
+                                        title="删除">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none"
+                                            viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- API Documentation Tab -->
+        <div v-if="activeTab === 'api'" class="space-y-6">
+            <!-- API Endpoint Card -->
+            <div class="glass rounded-2xl overflow-hidden shadow-2xl">
+                <div class="p-6 border-b border-slate-700/50">
+                    <div class="flex items-center gap-3 mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-400" fill="none"
+                            viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <h2 class="text-2xl font-bold text-white">接口说明</h2>
+                    </div>
+                </div>
+
+                <div class="p-6 space-y-6">
+                    <!-- Category List -->
+                    <div class="glass-card rounded-xl p-6 border-l-4 border-purple-500">
+                        <div class="flex items-start gap-3 mb-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-purple-400 flex-shrink-0 mt-0.5"
+                                fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                            </svg>
+                            <div class="flex-1">
+                                <h4 class="text-white font-semibold mb-2">可用分类列表</h4>
+                                <p class="text-slate-400 text-sm mb-4">使用以下分类ID拼接请求URL</p>
+                                <div v-if="categories.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div v-for="cat in categories" :key="cat.id"
+                                        class="bg-slate-800/50 rounded-lg p-3 flex items-center justify-between">
+                                        <div>
+                                            <span class="text-white font-medium">{{ cat.name }}</span>
+                                            <p class="text-slate-400 text-xs mt-0.5">{{ cat.description || '暂无描述' }}</p>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <span
+                                                class="bg-purple-500/20 text-purple-300 px-2 py-1 rounded text-xs font-mono">ID:
+                                                {{ cat.id }}</span>
+                                            <button
+                                                @click="copyToClipboard(`${window.location.origin}/api/get-account?category_id=${cat.id}`)"
+                                                class="text-slate-400 hover:text-blue-400 transition-colors"
+                                                title="复制URL">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none"
+                                                    viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div v-else class="text-slate-400 text-sm">暂无分类，请先在"分类管理"中添加</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Get Account API -->
+                    <div class="glass-card rounded-xl p-6">
+                        <div class="mb-4">
+                            <h3 class="text-lg font-semibold text-white mb-2">获取未使用账号（核心接口）</h3>
+                            <p class="text-slate-400 text-sm">获取一个未使用的账号，可指定分类</p>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div>
+                                <label class="text-slate-400 text-sm font-medium mb-2 block">接口地址：</label>
+                                <div
+                                    class="bg-slate-800/50 border border-slate-600 rounded-lg px-4 py-3 font-mono text-sm text-slate-200">
+                                    /api/get-account
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="text-slate-400 text-sm font-medium mb-2 block">请求方式：</label>
+                                <span
+                                    class="inline-block bg-green-500/20 text-green-400 px-3 py-1 rounded-lg text-sm font-semibold border border-green-500/30">GET</span>
+                            </div>
+
+                            <div>
+                                <label class="text-slate-400 text-sm font-medium mb-2 block">请求参数：</label>
+                                <div class="space-y-2">
+                                    <div class="flex items-start gap-3 bg-slate-800/30 rounded-lg p-3">
+                                        <span
+                                            class="bg-slate-700 text-slate-300 px-2 py-1 rounded text-xs font-mono">category_id</span>
+                                        <span class="text-slate-400 text-sm">- 分类ID，选填</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="text-slate-400 text-sm font-medium mb-2 block">请求示例：</label>
+                                <div
+                                    class="bg-slate-900 border border-slate-700 rounded-lg p-4 font-mono text-sm text-slate-300 overflow-x-auto">
+                                    <code>GET /api/get-account?category_id=1</code>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="text-slate-400 text-sm font-medium mb-2 block">成功响应（纯文本）：</label>
+                                <div
+                                    class="bg-slate-900 border border-slate-700 rounded-lg p-4 font-mono text-sm text-emerald-400 overflow-x-auto">
+                                    <pre>获取账号成功!
+请及时使用并妥善保管
+若24小时账号存在问题请联系客服处理
+分类：Netflix
+账号：xxx@email.com
+密码：yourpassword
+时间：2025-11-28 10:00:00</pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Query Password API -->
+                    <div class="glass-card rounded-xl p-6">
+                        <div class="mb-4">
+                            <h3 class="text-lg font-semibold text-white mb-2">查询账号密码</h3>
+                            <p class="text-slate-400 text-sm">根据邮箱地址查询账号信息</p>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div>
+                                <label class="text-slate-400 text-sm font-medium mb-2 block">接口地址：</label>
+                                <div
+                                    class="bg-slate-800/50 border border-slate-600 rounded-lg px-4 py-3 font-mono text-sm text-slate-200">
+                                    /api/query/password
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="text-slate-400 text-sm font-medium mb-2 block">请求方式：</label>
+                                <span
+                                    class="inline-block bg-green-500/20 text-green-400 px-3 py-1 rounded-lg text-sm font-semibold border border-green-500/30">GET</span>
+                            </div>
+
+                            <div>
+                                <label class="text-slate-400 text-sm font-medium mb-2 block">请求参数：</label>
+                                <div class="space-y-2">
+                                    <div class="flex items-start gap-3 bg-slate-800/30 rounded-lg p-3">
+                                        <span
+                                            class="bg-slate-700 text-slate-300 px-2 py-1 rounded text-xs font-mono">email</span>
+                                        <span class="text-slate-400 text-sm">- 邮箱地址，必填</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="text-slate-400 text-sm font-medium mb-2 block">成功响应：</label>
+                                <div
+                                    class="bg-slate-900 border border-slate-700 rounded-lg p-4 font-mono text-sm text-emerald-400 overflow-x-auto">
+                                    <pre>{
+  "success": true,
+  "account": {
+    "id": 1,
+    "email": "xxx@email.com",
+    "password": "yourpassword",
+    "category_name": "Netflix",
+    "is_used": false
+  }
+}</pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Query Accounts API -->
+                    <div class="glass-card rounded-xl p-6">
+                        <div class="mb-4">
+                            <h3 class="text-lg font-semibold text-white mb-2">按条件查询账号</h3>
+                            <p class="text-slate-400 text-sm">支持多条件筛选账号</p>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div>
+                                <label class="text-slate-400 text-sm font-medium mb-2 block">接口地址：</label>
+                                <div
+                                    class="bg-slate-800/50 border border-slate-600 rounded-lg px-4 py-3 font-mono text-sm text-slate-200">
+                                    /api/query
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="text-slate-400 text-sm font-medium mb-2 block">请求方式：</label>
+                                <span
+                                    class="inline-block bg-green-500/20 text-green-400 px-3 py-1 rounded-lg text-sm font-semibold border border-green-500/30">GET</span>
+                            </div>
+
+                            <div>
+                                <label class="text-slate-400 text-sm font-medium mb-2 block">请求参数：</label>
+                                <div class="space-y-2">
+                                    <div class="flex items-start gap-3 bg-slate-800/30 rounded-lg p-3">
+                                        <span
+                                            class="bg-slate-700 text-slate-300 px-2 py-1 rounded text-xs font-mono">category_id</span>
+                                        <span class="text-slate-400 text-sm">- 分类ID，选填</span>
+                                    </div>
+                                    <div class="flex items-start gap-3 bg-slate-800/30 rounded-lg p-3">
+                                        <span
+                                            class="bg-slate-700 text-slate-300 px-2 py-1 rounded text-xs font-mono">is_used</span>
+                                        <span class="text-slate-400 text-sm">- 是否已使用 (true/false)，选填</span>
+                                    </div>
+                                    <div class="flex items-start gap-3 bg-slate-800/30 rounded-lg p-3">
+                                        <span
+                                            class="bg-slate-700 text-slate-300 px-2 py-1 rounded text-xs font-mono">keyword</span>
+                                        <span class="text-slate-400 text-sm">- 邮箱关键词，选填</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="text-slate-400 text-sm font-medium mb-2 block">请求示例：</label>
+                                <div
+                                    class="bg-slate-900 border border-slate-700 rounded-lg p-4 font-mono text-sm text-slate-300 overflow-x-auto">
+                                    <code>GET /api/query?category_id=1&amp;is_used=false&amp;keyword=gmail</code>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Stats API -->
+                    <div class="glass-card rounded-xl p-6">
+                        <div class="mb-4">
+                            <h3 class="text-lg font-semibold text-white mb-2">获取统计信息</h3>
+                            <p class="text-slate-400 text-sm">获取系统账号统计数据</p>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div>
+                                <label class="text-slate-400 text-sm font-medium mb-2 block">接口地址：</label>
+                                <div
+                                    class="bg-slate-800/50 border border-slate-600 rounded-lg px-4 py-3 font-mono text-sm text-slate-200">
+                                    /api/stats
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="text-slate-400 text-sm font-medium mb-2 block">请求方式：</label>
+                                <span
+                                    class="inline-block bg-green-500/20 text-green-400 px-3 py-1 rounded-lg text-sm font-semibold border border-green-500/30">GET</span>
+                            </div>
+
+                            <div>
+                                <label class="text-slate-400 text-sm font-medium mb-2 block">请求参数：</label>
+                                <div class="bg-slate-800/30 rounded-lg p-3 text-slate-400 text-sm">
+                                    无需参数
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="text-slate-400 text-sm font-medium mb-2 block">成功响应：</label>
+                                <div
+                                    class="bg-slate-900 border border-slate-700 rounded-lg p-4 font-mono text-sm text-emerald-400 overflow-x-auto">
+                                    <pre>{
+  "total_accounts": 100,
+  "used_accounts": 30,
+  "unused_accounts": 70,
+  "category_count": 5,
+  "usage_rate": "30.0%"
+}</pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Stats by Category API -->
+                    <div class="glass-card rounded-xl p-6">
+                        <div class="mb-4">
+                            <h3 class="text-lg font-semibold text-white mb-2">按分类统计</h3>
+                            <p class="text-slate-400 text-sm">获取各分类的账号统计</p>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div>
+                                <label class="text-slate-400 text-sm font-medium mb-2 block">接口地址：</label>
+                                <div
+                                    class="bg-slate-800/50 border border-slate-600 rounded-lg px-4 py-3 font-mono text-sm text-slate-200">
+                                    /api/stats/by-category
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="text-slate-400 text-sm font-medium mb-2 block">请求方式：</label>
+                                <span
+                                    class="inline-block bg-green-500/20 text-green-400 px-3 py-1 rounded-lg text-sm font-semibold border border-green-500/30">GET</span>
+                            </div>
+
+                            <div>
+                                <label class="text-slate-400 text-sm font-medium mb-2 block">成功响应：</label>
+                                <div
+                                    class="bg-slate-900 border border-slate-700 rounded-lg p-4 font-mono text-sm text-emerald-400 overflow-x-auto">
+                                    <pre>{
+  "categories": [
+    {
+      "category_id": 1,
+      "category_name": "Netflix",
+      "total": 50,
+      "used": 20,
+      "unused": 30
+    }
+  ]
+}</pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Database Schema Info -->
+                    <div class="glass-card rounded-xl p-6 border-l-4 border-cyan-500">
+                        <div class="flex items-start gap-3 mb-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-cyan-400 flex-shrink-0 mt-0.5"
+                                fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+                            </svg>
+                            <div class="flex-1">
+                                <h4 class="text-white font-semibold mb-4">数据库字段说明</h4>
+
+                                <!-- Accounts Table -->
+                                <div class="mb-6">
+                                    <h5 class="text-cyan-300 font-medium mb-3 flex items-center gap-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none"
+                                            viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                        </svg>
+                                        accounts 表（账号表）
+                                    </h5>
+                                    <div class="overflow-x-auto">
+                                        <table class="w-full text-sm">
+                                            <thead>
+                                                <tr class="bg-slate-800/50 text-slate-300">
+                                                    <th class="px-3 py-2 text-left rounded-tl-lg">字段名</th>
+                                                    <th class="px-3 py-2 text-left">类型</th>
+                                                    <th class="px-3 py-2 text-left">必填</th>
+                                                    <th class="px-3 py-2 text-left rounded-tr-lg">说明</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-slate-700/50">
+                                                <tr class="hover:bg-slate-800/30">
+                                                    <td class="px-3 py-2 font-mono text-cyan-300">id</td>
+                                                    <td class="px-3 py-2 text-slate-400">INTEGER</td>
+                                                    <td class="px-3 py-2"><span class="text-emerald-400">自增</span></td>
+                                                    <td class="px-3 py-2 text-slate-300">主键，账号唯一标识</td>
+                                                </tr>
+                                                <tr class="hover:bg-slate-800/30">
+                                                    <td class="px-3 py-2 font-mono text-cyan-300">email</td>
+                                                    <td class="px-3 py-2 text-slate-400">TEXT</td>
+                                                    <td class="px-3 py-2"><span class="text-red-400">是</span></td>
+                                                    <td class="px-3 py-2 text-slate-300">邮箱地址，唯一约束</td>
+                                                </tr>
+                                                <tr class="hover:bg-slate-800/30">
+                                                    <td class="px-3 py-2 font-mono text-cyan-300">password</td>
+                                                    <td class="px-3 py-2 text-slate-400">TEXT</td>
+                                                    <td class="px-3 py-2"><span class="text-red-400">是</span></td>
+                                                    <td class="px-3 py-2 text-slate-300">账号密码</td>
+                                                </tr>
+                                                <tr class="hover:bg-slate-800/30">
+                                                    <td class="px-3 py-2 font-mono text-cyan-300">category_id</td>
+                                                    <td class="px-3 py-2 text-slate-400">INTEGER</td>
+                                                    <td class="px-3 py-2"><span class="text-slate-400">否</span></td>
+                                                    <td class="px-3 py-2 text-slate-300">关联分类ID，外键引用 categories.id</td>
+                                                </tr>
+                                                <tr class="hover:bg-slate-800/30">
+                                                    <td class="px-3 py-2 font-mono text-cyan-300">is_used</td>
+                                                    <td class="px-3 py-2 text-slate-400">INTEGER</td>
+                                                    <td class="px-3 py-2"><span class="text-slate-400">否</span></td>
+                                                    <td class="px-3 py-2 text-slate-300">使用状态：0=未使用，1=已使用（默认0）</td>
+                                                </tr>
+                                                <tr class="hover:bg-slate-800/30">
+                                                    <td class="px-3 py-2 font-mono text-cyan-300">created_at</td>
+                                                    <td class="px-3 py-2 text-slate-400">TEXT</td>
+                                                    <td class="px-3 py-2"><span class="text-red-400">是</span></td>
+                                                    <td class="px-3 py-2 text-slate-300">创建时间，ISO 8601格式</td>
+                                                </tr>
+                                                <tr class="hover:bg-slate-800/30">
+                                                    <td class="px-3 py-2 font-mono text-cyan-300">used_at</td>
+                                                    <td class="px-3 py-2 text-slate-400">TEXT</td>
+                                                    <td class="px-3 py-2"><span class="text-slate-400">否</span></td>
+                                                    <td class="px-3 py-2 text-slate-300">使用时间，调用get-account时自动记录</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <!-- Categories Table -->
+                                <div>
+                                    <h5 class="text-purple-300 font-medium mb-3 flex items-center gap-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none"
+                                            viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                        </svg>
+                                        categories 表（分类表）
+                                    </h5>
+                                    <div class="overflow-x-auto">
+                                        <table class="w-full text-sm">
+                                            <thead>
+                                                <tr class="bg-slate-800/50 text-slate-300">
+                                                    <th class="px-3 py-2 text-left rounded-tl-lg">字段名</th>
+                                                    <th class="px-3 py-2 text-left">类型</th>
+                                                    <th class="px-3 py-2 text-left">必填</th>
+                                                    <th class="px-3 py-2 text-left rounded-tr-lg">说明</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-slate-700/50">
+                                                <tr class="hover:bg-slate-800/30">
+                                                    <td class="px-3 py-2 font-mono text-purple-300">id</td>
+                                                    <td class="px-3 py-2 text-slate-400">INTEGER</td>
+                                                    <td class="px-3 py-2"><span class="text-emerald-400">自增</span></td>
+                                                    <td class="px-3 py-2 text-slate-300">主键，分类唯一标识</td>
+                                                </tr>
+                                                <tr class="hover:bg-slate-800/30">
+                                                    <td class="px-3 py-2 font-mono text-purple-300">name</td>
+                                                    <td class="px-3 py-2 text-slate-400">TEXT</td>
+                                                    <td class="px-3 py-2"><span class="text-red-400">是</span></td>
+                                                    <td class="px-3 py-2 text-slate-300">分类名称，唯一约束</td>
+                                                </tr>
+                                                <tr class="hover:bg-slate-800/30">
+                                                    <td class="px-3 py-2 font-mono text-purple-300">description</td>
+                                                    <td class="px-3 py-2 text-slate-400">TEXT</td>
+                                                    <td class="px-3 py-2"><span class="text-slate-400">否</span></td>
+                                                    <td class="px-3 py-2 text-slate-300">分类描述信息</td>
+                                                </tr>
+                                                <tr class="hover:bg-slate-800/30">
+                                                    <td class="px-3 py-2 font-mono text-purple-300">created_at</td>
+                                                    <td class="px-3 py-2 text-slate-400">TEXT</td>
+                                                    <td class="px-3 py-2"><span class="text-red-400">是</span></td>
+                                                    <td class="px-3 py-2 text-slate-300">创建时间，ISO 8601格式</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Notes -->
+                    <div class="glass-card rounded-xl p-6 border-l-4 border-blue-500">
+                        <div class="flex items-start gap-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-400 flex-shrink-0 mt-0.5"
+                                fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <div>
+                                <h4 class="text-white font-semibold mb-2">注意事项</h4>
+                                <ul class="text-slate-300 text-sm space-y-1 list-disc list-inside">
+                                    <li>调用 /api/get-account 会自动标记账号为已使用状态</li>
+                                    <li>如果没有可用账号，将返回相应提示</li>
+                                    <li>管理接口（/admin/*）仅供后台管理使用</li>
+                                    <li>完整API文档请访问 /docs 查看</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Categories Tab -->
+        <div v-if="activeTab === 'categories'" class="glass rounded-2xl overflow-hidden shadow-2xl">
+            <div class="p-6 border-b border-slate-700/50 flex justify-between items-center">
+                <h2 class="text-xl font-semibold text-slate-200">分类管理</h2>
+                <button @click="showCategoryModal = true"
+                    class="btn-success px-4 py-2 rounded-lg text-white font-medium flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 4v16m8-8H4" />
+                    </svg>
+                    添加分类
+                </button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-800/50 text-slate-300 text-sm uppercase tracking-wider">
+                            <th class="p-4 font-medium border-b border-slate-700/50">ID</th>
+                            <th class="p-4 font-medium border-b border-slate-700/50">名称</th>
+                            <th class="p-4 font-medium border-b border-slate-700/50">描述</th>
+                            <th class="p-4 font-medium border-b border-slate-700/50">创建时间</th>
+                            <th class="p-4 font-medium border-b border-slate-700/50 text-right">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700/50">
+                        <tr v-if="categories.length === 0">
+                            <td colspan="5" class="p-8 text-center text-slate-400">暂无分类数据</td>
+                        </tr>
+                        <tr v-else v-for="cat in categories" :key="cat.id"
+                            class="hover:bg-slate-800/30 transition-colors group">
+                            <td class="p-4 text-slate-400 font-mono text-sm">#{{ cat.id }}</td>
+                            <td class="p-4">
+                                <span class="px-2 py-1 rounded-full text-xs bg-purple-500/20 text-purple-300">{{ cat.name }}</span>
+                            </td>
+                            <td class="p-4 text-slate-300 text-sm">{{ cat.description || '-' }}</td>
+                            <td class="p-4 text-slate-400 text-sm">{{ formatDate(cat.created_at) }}</td>
+                            <td class="p-4 text-right">
+                                <button @click="deleteCategory(cat.id)"
+                                    class="p-1.5 rounded-lg hover:bg-red-500/10 text-slate-400 hover:text-red-400 transition-colors"
+                                    title="删除">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none"
+                                        viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Add Account Modal -->
+        <div v-if="showAddModal"
+            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            @click.self="showAddModal = false">
+            <div class="glass rounded-2xl w-full max-w-md p-6 shadow-2xl">
+                <h3 class="text-xl font-bold mb-4 text-white">添加新账号</h3>
+                <form @submit.prevent="addAccount">
+                    <div class="mb-4">
+                        <label class="block text-slate-300 text-sm font-medium mb-2">分类</label>
+                        <select v-model="newAccount.category_id"
+                            class="w-full bg-slate-800/50 border border-slate-600 rounded-lg px-4 py-2.5 focus:outline-none focus:border-blue-500">
+                            <option :value="null">未分类</option>
+                            <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+                        </select>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-slate-300 text-sm font-medium mb-2">邮箱地址</label>
+                        <input v-model="newAccount.email" type="email" required
+                            class="w-full bg-slate-800/50 border border-slate-600 rounded-lg px-4 py-2.5 focus:outline-none focus:border-blue-500"
+                            placeholder="example@email.com">
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-slate-300 text-sm font-medium mb-2">密码</label>
+                        <input v-model="newAccount.password" type="text" required
+                            class="w-full bg-slate-800/50 border border-slate-600 rounded-lg px-4 py-2.5 focus:outline-none focus:border-blue-500"
+                            placeholder="输入密码">
+                    </div>
+                    <div class="flex justify-end gap-3">
+                        <button type="button" @click="showAddModal = false"
+                            class="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors">取消</button>
+                        <button type="submit"
+                            class="btn-primary px-6 py-2 rounded-lg text-white font-medium"
+                            :disabled="submitting">{{ submitting ? '添加中...' : '确认添加' }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Add Category Modal -->
+        <div v-if="showCategoryModal"
+            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            @click.self="showCategoryModal = false">
+            <div class="glass rounded-2xl w-full max-w-md p-6 shadow-2xl">
+                <h3 class="text-xl font-bold mb-4 text-white">添加新分类</h3>
+                <form @submit.prevent="addCategory">
+                    <div class="mb-4">
+                        <label class="block text-slate-300 text-sm font-medium mb-2">分类名称</label>
+                        <input v-model="newCategory.name" type="text" required
+                            class="w-full bg-slate-800/50 border border-slate-600 rounded-lg px-4 py-2.5 focus:outline-none focus:border-blue-500"
+                            placeholder="如：Netflix">
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-slate-300 text-sm font-medium mb-2">描述（可选）</label>
+                        <input v-model="newCategory.description" type="text"
+                            class="w-full bg-slate-800/50 border border-slate-600 rounded-lg px-4 py-2.5 focus:outline-none focus:border-blue-500"
+                            placeholder="分类描述">
+                    </div>
+                    <div class="flex justify-end gap-3">
+                        <button type="button" @click="showCategoryModal = false"
+                            class="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors">取消</button>
+                        <button type="submit" class="btn-success px-6 py-2 rounded-lg text-white font-medium"
+                            :disabled="submitting">{{ submitting ? '添加中...' : '确认添加' }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Toast -->
+        <div v-if="toast.show" class="fixed bottom-6 right-6 z-50">
+            <div :class="toast.type === 'success' ? 'bg-emerald-500' : 'bg-red-500'"
+                class="text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-3">
+                <span class="font-medium">{{ toast.message }}</span>
+            </div>
+        </div>
+
+        <script>
+            const { createApp, ref, onMounted } = Vue;
+            createApp({
+                setup() {
+                    const accounts = ref([]);
+                    const filteredAccounts = ref([]);
+                    const categories = ref([]);
+                    const stats = ref({ total_accounts: 0, used_accounts: 0, unused_accounts: 0, category_count: 0 });
+                    const loading = ref(true);
+                    const activeTab = ref('accounts'); // 初始激活账号管理标签
+                    const filterCategoryId = ref(null);
+                    const searchKeyword = ref('');
+                    const showAddModal = ref(false); // 初始关闭添加账号弹窗
+                    const showCategoryModal = ref(false); // 初始关闭添加分类弹窗
+                    const submitting = ref(false);
+                    const newAccount = ref({ email: '', password: '', category_id: null });
+                    const newCategory = ref({ name: '', description: '' });
+                    const toast = ref({ show: false, message: '', type: 'success' });
+
+                    // API 基础地址配置
+                    // 优先级：
+                    // 1. 如果当前就在 8000 端口，说明直接访问后端，使用相对路径
+                    // 2. 否则尝试连接到同主机的 8000 端口后端
+                    const getApiBase = () => {
+                        // 如果当前页面就在 8000 端口，直接使用相对路径
+                        if (window.location.port === '8000') {
+                            return '';
+                        }
+                        // 其他情况，连接到同主机的 8000 端口
+                        return window.location.protocol + '//' + window.location.hostname + ':8000';
+                    };
+                    const API_BASE = ref(getApiBase());
+
+                    // 从Cookie中获取授权码
+                    const getAuthKey = () => {
+                        const cookies = document.cookie.split(';');
+                        for (let cookie of cookies) {
+                            const [name, value] = cookie.trim().split('=');
+                            if (name === 'user_key') {
+                                return decodeURIComponent(value);
+                            }
+                        }
+                        return null;
+                    };
+
+                    // 处理授权错误，重定向到登录页
+                    const handleAuthError = (error) => {
+                        if (error.response?.status === 401 || error.response?.status === 422) {
+                            window.location.href = '/user';
+                            return true;
+                        }
+                        return false;
+                    };
+
+                    // 检查授权码，如果不存在则重定向到登录页
+                    const checkAuth = () => {
+                        const key = getAuthKey();
+                        if (!key) {
+                            window.location.href = '/user';
+                            return null;
+                        }
+                        return key;
+                    };
+
+                    const showToast = (message, type = 'success') => {
+                        toast.value = { show: true, message, type };
+                        setTimeout(() => { toast.value.show = false; }, 3000);
+                    };
+
+                    const fetchCategories = async () => {
+                        const key = checkAuth();
+                        if (!key) return;
+                        try {
+                            const res = await axios.get(`${API_BASE.value}/admin/categories`, { params: { key } });
+                            console.log('分类数据:', res.data);
+                            // 确保返回的是数组
+                            if (Array.isArray(res.data)) {
+                                categories.value = res.data;
+                            } else {
+                                console.error('分类数据格式错误:', res.data);
+                                categories.value = [];
+                            }
+                        } catch (e) {
+                            console.error('获取分类失败:', e);
+                            // 处理授权错误
+                            if (handleAuthError(e)) return;
+                            // 如果是网络错误，尝试使用备用地址
+                            if (e.code === 'ERR_NETWORK' || e.message.includes('Network Error')) {
+                                const backupBase = 'http://' + window.location.hostname + ':8000';
+                                if (API_BASE.value !== backupBase) {
+                                    console.log('尝试使用备用地址:', backupBase);
+                                    API_BASE.value = backupBase;
+                                    // 重试一次
+                                    try {
+                                        const res = await axios.get(`${API_BASE.value}/admin/categories`, { params: { key } });
+                                        if (Array.isArray(res.data)) {
+                                            categories.value = res.data;
+                                            showToast('已切换到直连模式', 'success');
+                                            return;
+                                        }
+                                    } catch (retryError) {
+                                        console.error('重试失败:', retryError);
+                                        if (handleAuthError(retryError)) return;
+                                    }
+                                }
+                            }
+                            showToast('获取分类失败，请检查后端服务是否运行', 'error');
+                            categories.value = [];
+                        }
+                    };
+
+                    const filterAccounts = () => {
+                        if (!searchKeyword.value.trim()) {
+                            filteredAccounts.value = accounts.value;
+                        } else {
+                            const keyword = searchKeyword.value.toLowerCase();
+                            filteredAccounts.value = accounts.value.filter(account =>
+                                account.email.toLowerCase().includes(keyword)
+                            );
+                        }
+                    };
+
+                    const fetchAccounts = async () => {
+                        const key = checkAuth();
+                        if (!key) return;
+                        loading.value = true;
+                        try {
+                            const params = { key };
+                            if (filterCategoryId.value) params.category_id = filterCategoryId.value;
+                            const res = await axios.get(`${API_BASE.value}/admin/accounts`, { params });
+                            console.log('账号数据:', res.data);
+                            // 确保返回的是数组
+                            if (Array.isArray(res.data)) {
+                                accounts.value = res.data;
+                                // 立即更新 filteredAccounts
+                                filterAccounts();
+                            } else {
+                                console.error('账号数据格式错误:', res.data);
+                                accounts.value = [];
+                                filteredAccounts.value = [];
+                            }
+                        } catch (e) {
+                            console.error('获取账号失败:', e);
+                            // 处理授权错误
+                            if (handleAuthError(e)) return;
+                            const errorMsg = e.response?.data?.detail || e.message || '未知错误';
+                            showToast('获取账号失败: ' + errorMsg, 'error');
+                            accounts.value = [];
+                            filteredAccounts.value = [];
+                        } finally { loading.value = false; }
+                    };
+
+                    const fetchStats = async () => {
+                        const key = getAuthKey();
+                        if (!key) return;
+                        try {
+                            const res = await axios.get(`${API_BASE.value}/api/stats`, { params: { key } });
+                            stats.value = res.data;
+                        } catch (e) { 
+                            console.error(e);
+                            handleAuthError(e);
+                        }
+                    };
+
+                    const fetchData = async () => {
+                        await Promise.all([fetchCategories(), fetchAccounts(), fetchStats()]);
+                    };
+
+                    const addAccount = async () => {
+                        if (!newAccount.value.email || !newAccount.value.password) return;
+                        const key = getAuthKey();
+                        if (!key) { window.location.href = '/user'; return; }
+                        submitting.value = true;
+                        try {
+                            const params = { key, email: newAccount.value.email, password: newAccount.value.password };
+                            if (newAccount.value.category_id) params.category_id = newAccount.value.category_id;
+                            await axios.get(`${API_BASE.value}/admin/accounts/add`, { params });
+                            showToast('账号添加成功');
+                            showAddModal.value = false;
+                            newAccount.value = { email: '', password: '', category_id: null };
+                            fetchData();
+                        } catch (e) {
+                            if (handleAuthError(e)) return;
+                            showToast('添加失败：' + (e.response?.data?.detail || '未知错误'), 'error');
+                        } finally { submitting.value = false; }
+                    };
+
+                    const addCategory = async () => {
+                        if (!newCategory.value.name) return;
+                        const key = getAuthKey();
+                        if (!key) { window.location.href = '/user'; return; }
+                        submitting.value = true;
+                        try {
+                            await axios.get(`${API_BASE.value}/admin/categories/add`, { params: { key, ...newCategory.value } });
+                            showToast('分类添加成功');
+                            showCategoryModal.value = false;
+                            newCategory.value = { name: '', description: '' };
+                            fetchData();
+                        } catch (e) {
+                            if (handleAuthError(e)) return;
+                            showToast('添加失败：' + (e.response?.data?.detail || '未知错误'), 'error');
+                        } finally { submitting.value = false; }
+                    };
+
+                    const deleteAccount = async (id) => {
+                        if (!confirm('确定要删除这个账号吗？')) return;
+                        const key = getAuthKey();
+                        if (!key) { window.location.href = '/user'; return; }
+                        try {
+                            await axios.get(`${API_BASE.value}/admin/accounts/delete`, { params: { key, id } });
+                            showToast('账号已删除');
+                            fetchData();
+                        } catch (e) { 
+                            if (handleAuthError(e)) return;
+                            showToast('删除失败', 'error'); 
+                        }
+                    };
+
+                    const deleteCategory = async (id) => {
+                        if (!confirm('确定要删除这个分类吗？分类下的账号会变为未分类。')) return;
+                        const key = getAuthKey();
+                        if (!key) { window.location.href = '/user'; return; }
+                        try {
+                            await axios.get(`${API_BASE.value}/admin/categories/delete`, { params: { key, id } });
+                            showToast('分类已删除');
+                            fetchData();
+                        } catch (e) { 
+                            if (handleAuthError(e)) return;
+                            showToast('删除失败', 'error'); 
+                        }
+                    };
+
+                    const resetAccount = async (id) => {
+                        const key = getAuthKey();
+                        if (!key) { window.location.href = '/user'; return; }
+                        try {
+                            await axios.get(`${API_BASE.value}/admin/accounts/reset`, { params: { key, id } });
+                            showToast('账号状态已重置');
+                            fetchData();
+                        } catch (e) { 
+                            if (handleAuthError(e)) return;
+                            showToast('重置失败', 'error'); 
+                        }
+                    };
+
+                    const resetAllAccounts = async () => {
+                        if (!confirm('确定要重置所有账号的状态吗？')) return;
+                        const key = getAuthKey();
+                        if (!key) { window.location.href = '/user'; return; }
+                        try {
+                            await axios.get(`${API_BASE.value}/admin/accounts/reset-all`, { params: { key } });
+                            showToast('所有账号已重置');
+                            fetchData();
+                        } catch (e) { 
+                            if (handleAuthError(e)) return;
+                            showToast('重置失败', 'error'); 
+                        }
+                    };
+
+                    const copyToClipboard = (text) => {
+                        if (navigator.clipboard && window.isSecureContext) {
+                            navigator.clipboard.writeText(text).then(() => showToast('已复制')).catch(() => showToast('复制失败', 'error'));
+                        } else {
+                            // 降级方案：使用 execCommand
+                            const textArea = document.createElement('textarea');
+                            textArea.value = text;
+                            textArea.style.position = 'fixed';
+                            textArea.style.left = '-9999px';
+                            document.body.appendChild(textArea);
+                            textArea.select();
+                            try {
+                                document.execCommand('copy');
+                                showToast('已复制');
+                            } catch (e) {
+                                showToast('复制失败', 'error');
+                            }
+                            document.body.removeChild(textArea);
+                        }
+                    };
+
+                    const formatDate = (dateStr) => {
+                        if (!dateStr) return '';
+                        try {
+                            // 解析 ISO 8601 格式的时间字符串
+                            const date = new Date(dateStr);
+
+                            // 检查是否为有效日期
+                            if (isNaN(date.getTime())) return dateStr;
+
+                            // 格式化为 YYYY/MM/DD HH:mm
+                            const year = date.getFullYear();
+                            const month = String(date.getMonth() + 1).padStart(2, '0');
+                            const day = String(date.getDate()).padStart(2, '0');
+                            const hours = String(date.getHours()).padStart(2, '0');
+                            const minutes = String(date.getMinutes()).padStart(2, '0');
+
+                            return `${year}/${month}/${day} ${hours}:${minutes}`;
+                        } catch (e) {
+                            console.error('日期格式化错误:', e);
+                            return dateStr;
+                        }
+                    };
+
+                    onMounted(fetchData);
+
+                    return {
+                        accounts, filteredAccounts, categories, stats, loading, activeTab, filterCategoryId, searchKeyword,
+                        showAddModal, showCategoryModal, submitting, newAccount, newCategory, toast,
+                        API_BASE, fetchData, fetchAccounts, filterAccounts, addAccount, addCategory, deleteAccount, deleteCategory,
+                        resetAccount, resetAllAccounts, copyToClipboard, formatDate
+                    };
+                }
+            }).mount('#app');
+        </script>
+</body>
+
+</html>

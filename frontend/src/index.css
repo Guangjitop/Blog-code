@@ -1,0 +1,416 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* ===== Light Theme (Default) - Modern Business Style ===== */
+  :root,
+  .light {
+    --background: 210 20% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 221 83% 53%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 221 83% 53%;
+    --radius: 0.625rem;
+    
+    /* Gradient System */
+    --gradient-from: 221 83% 53%;
+    --gradient-to: 262 83% 58%;
+    
+    /* Shadow System */
+    --shadow-color: 214 32% 91%;
+    --shadow-sm: 0 1px 2px 0 hsl(var(--shadow-color) / 0.5);
+    --shadow-md: 0 4px 6px -1px hsl(var(--shadow-color) / 0.4), 0 2px 4px -2px hsl(var(--shadow-color) / 0.4);
+    --shadow-lg: 0 10px 15px -3px hsl(var(--shadow-color) / 0.3), 0 4px 6px -4px hsl(var(--shadow-color) / 0.3);
+    --shadow-xl: 0 20px 25px -5px hsl(var(--shadow-color) / 0.25), 0 8px 10px -6px hsl(var(--shadow-color) / 0.25);
+    
+    /* Surface Elevation */
+    --surface-elevated: 0 0% 100%;
+    --surface-overlay: 0 0% 100%;
+    
+    /* Status Colors */
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+  }
+
+  /* ===== Dark Theme - Elegant Dark Mode ===== */
+  .dark {
+    --background: 222 47% 6%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 8%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 8%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47% 6%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 224 76% 48%;
+    
+    /* Gradient System */
+    --gradient-from: 217 91% 60%;
+    --gradient-to: 262 83% 58%;
+    
+    /* Shadow System */
+    --shadow-color: 222 47% 3%;
+    --shadow-sm: 0 1px 2px 0 hsl(var(--shadow-color) / 0.7);
+    --shadow-md: 0 4px 6px -1px hsl(var(--shadow-color) / 0.6), 0 2px 4px -2px hsl(var(--shadow-color) / 0.6);
+    --shadow-lg: 0 10px 15px -3px hsl(var(--shadow-color) / 0.5), 0 4px 6px -4px hsl(var(--shadow-color) / 0.5);
+    --shadow-xl: 0 20px 25px -5px hsl(var(--shadow-color) / 0.4), 0 8px 10px -6px hsl(var(--shadow-color) / 0.4);
+    
+    /* Surface Elevation */
+    --surface-elevated: 222 47% 11%;
+    --surface-overlay: 222 47% 11%;
+    
+    /* Status Colors */
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+  }
+
+  /* ===== Ocean Theme - Professional Blue ===== */
+  .ocean {
+    --background: 200 30% 97%;
+    --foreground: 200 50% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 200 50% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 200 50% 10%;
+    --primary: 199 89% 48%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 200 30% 94%;
+    --secondary-foreground: 200 50% 15%;
+    --muted: 200 30% 94%;
+    --muted-foreground: 200 20% 40%;
+    --accent: 187 72% 93%;
+    --accent-foreground: 200 50% 15%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 200 30% 88%;
+    --input: 200 30% 92%;
+    --ring: 199 89% 48%;
+    
+    /* Gradient System */
+    --gradient-from: 199 89% 48%;
+    --gradient-to: 187 72% 45%;
+    
+    /* Shadow System */
+    --shadow-color: 200 30% 80%;
+    --shadow-sm: 0 1px 2px 0 hsl(var(--shadow-color) / 0.5);
+    --shadow-md: 0 4px 6px -1px hsl(var(--shadow-color) / 0.4), 0 2px 4px -2px hsl(var(--shadow-color) / 0.4);
+    --shadow-lg: 0 10px 15px -3px hsl(var(--shadow-color) / 0.3), 0 4px 6px -4px hsl(var(--shadow-color) / 0.3);
+    --shadow-xl: 0 20px 25px -5px hsl(var(--shadow-color) / 0.25), 0 8px 10px -6px hsl(var(--shadow-color) / 0.25);
+    
+    /* Surface Elevation */
+    --surface-elevated: 0 0% 100%;
+    --surface-overlay: 200 30% 99%;
+    
+    /* Status Colors */
+    --success: 160 84% 39%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+  }
+
+  /* ===== Sunset Theme - Warm Professional ===== */
+  .sunset {
+    --background: 30 40% 97%;
+    --foreground: 20 30% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 20 30% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 20 30% 12%;
+    --primary: 24 95% 53%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 30 40% 94%;
+    --secondary-foreground: 20 30% 15%;
+    --muted: 30 40% 94%;
+    --muted-foreground: 20 20% 40%;
+    --accent: 38 92% 93%;
+    --accent-foreground: 20 30% 15%;
+    --destructive: 0 84% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 30 35% 88%;
+    --input: 30 35% 92%;
+    --ring: 24 95% 53%;
+    
+    /* Gradient System */
+    --gradient-from: 24 95% 53%;
+    --gradient-to: 350 89% 60%;
+    
+    /* Shadow System */
+    --shadow-color: 30 35% 80%;
+    --shadow-sm: 0 1px 2px 0 hsl(var(--shadow-color) / 0.5);
+    --shadow-md: 0 4px 6px -1px hsl(var(--shadow-color) / 0.4), 0 2px 4px -2px hsl(var(--shadow-color) / 0.4);
+    --shadow-lg: 0 10px 15px -3px hsl(var(--shadow-color) / 0.3), 0 4px 6px -4px hsl(var(--shadow-color) / 0.3);
+    --shadow-xl: 0 20px 25px -5px hsl(var(--shadow-color) / 0.25), 0 8px 10px -6px hsl(var(--shadow-color) / 0.25);
+    
+    /* Surface Elevation */
+    --surface-elevated: 0 0% 100%;
+    --surface-overlay: 30 40% 99%;
+    
+    /* Status Colors */
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+  }
+
+  /* ===== Forest Theme - Natural Professional ===== */
+  .forest {
+    --background: 140 20% 97%;
+    --foreground: 140 30% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 140 30% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 140 30% 10%;
+    --primary: 142 71% 45%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 140 25% 94%;
+    --secondary-foreground: 140 30% 15%;
+    --muted: 140 25% 94%;
+    --muted-foreground: 140 15% 40%;
+    --accent: 140 40% 92%;
+    --accent-foreground: 140 30% 15%;
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 140 20% 88%;
+    --input: 140 20% 92%;
+    --ring: 142 71% 45%;
+    
+    /* Gradient System */
+    --gradient-from: 142 71% 45%;
+    --gradient-to: 160 84% 39%;
+    
+    /* Shadow System */
+    --shadow-color: 140 20% 80%;
+    --shadow-sm: 0 1px 2px 0 hsl(var(--shadow-color) / 0.5);
+    --shadow-md: 0 4px 6px -1px hsl(var(--shadow-color) / 0.4), 0 2px 4px -2px hsl(var(--shadow-color) / 0.4);
+    --shadow-lg: 0 10px 15px -3px hsl(var(--shadow-color) / 0.3), 0 4px 6px -4px hsl(var(--shadow-color) / 0.3);
+    --shadow-xl: 0 20px 25px -5px hsl(var(--shadow-color) / 0.25), 0 8px 10px -6px hsl(var(--shadow-color) / 0.25);
+    
+    /* Surface Elevation */
+    --surface-elevated: 0 0% 100%;
+    --surface-overlay: 140 20% 99%;
+    
+    /* Status Colors */
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+  }
+
+  /* ===== Cyberpunk Theme - Neon Tech ===== */
+  .cyberpunk {
+    --background: 270 25% 6%;
+    --foreground: 280 100% 95%;
+    --card: 270 30% 10%;
+    --card-foreground: 280 100% 95%;
+    --popover: 270 30% 10%;
+    --popover-foreground: 280 100% 95%;
+    --primary: 318 100% 60%;
+    --primary-foreground: 270 25% 6%;
+    --secondary: 270 30% 18%;
+    --secondary-foreground: 280 100% 90%;
+    --muted: 270 25% 15%;
+    --muted-foreground: 280 30% 60%;
+    --accent: 262 83% 25%;
+    --accent-foreground: 318 100% 80%;
+    --destructive: 0 90% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 270 30% 22%;
+    --input: 270 30% 15%;
+    --ring: 318 100% 60%;
+    
+    /* Gradient System */
+    --gradient-from: 318 100% 60%;
+    --gradient-to: 262 83% 58%;
+    
+    /* Shadow System */
+    --shadow-color: 270 50% 3%;
+    --shadow-sm: 0 1px 2px 0 hsl(var(--shadow-color) / 0.8), 0 0 4px hsl(318 100% 60% / 0.1);
+    --shadow-md: 0 4px 6px -1px hsl(var(--shadow-color) / 0.7), 0 0 8px hsl(318 100% 60% / 0.15);
+    --shadow-lg: 0 10px 15px -3px hsl(var(--shadow-color) / 0.6), 0 0 12px hsl(318 100% 60% / 0.2);
+    --shadow-xl: 0 20px 25px -5px hsl(var(--shadow-color) / 0.5), 0 0 20px hsl(318 100% 60% / 0.25);
+    
+    /* Surface Elevation */
+    --surface-elevated: 270 30% 12%;
+    --surface-overlay: 270 30% 12%;
+    
+    /* Status Colors */
+    --success: 160 100% 50%;
+    --success-foreground: 270 25% 6%;
+    --warning: 45 100% 50%;
+    --warning-foreground: 270 25% 6%;
+    --info: 190 100% 50%;
+    --info-foreground: 270 25% 6%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Smooth theme transitions */
+@layer utilities {
+  .theme-transition {
+    transition: background-color 0.3s ease, 
+                border-color 0.3s ease, 
+                color 0.3s ease,
+                box-shadow 0.3s ease,
+                transform 0.2s ease;
+  }
+}
+
+/* Enhanced Card Styles */
+@layer components {
+  .card-elevated {
+    @apply bg-card rounded-xl border shadow-md;
+    box-shadow: var(--shadow-md);
+    transition: box-shadow 0.3s ease, transform 0.2s ease;
+  }
+  
+  .card-elevated:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+  }
+  
+  .card-interactive {
+    @apply card-elevated cursor-pointer;
+  }
+  
+  .card-interactive:active {
+    transform: translateY(0);
+  }
+}
+
+/* Toast animations */
+@keyframes toast-slide-in {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes toast-fade-out {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+}
+
+.toast-enter {
+  animation: toast-slide-in 0.3s ease-out forwards;
+}
+
+.toast-exit {
+  animation: toast-fade-out 0.3s ease-in forwards;
+}
+
+/* Custom Scrollbar Styles */
+@layer utilities {
+  .scrollbar-custom {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+  }
+
+  .scrollbar-custom::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-custom::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 3px;
+  }
+
+  .scrollbar-custom::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--muted-foreground) / 0.3);
+    border-radius: 3px;
+  }
+
+  .scrollbar-custom::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.5);
+  }
+
+  .scrollbar-custom::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}
+
+/* Gradient Text Utility */
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(
+      135deg,
+      hsl(var(--gradient-from)) 0%,
+      hsl(var(--gradient-to)) 100%
+    );
+  }
+  
+  .bg-gradient-primary {
+    background-image: linear-gradient(
+      135deg,
+      hsl(var(--gradient-from)) 0%,
+      hsl(var(--gradient-to)) 100%
+    );
+  }
+}
+
+/* Focus Ring Styles */
+@layer utilities {
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+}
+

@@ -1,0 +1,34 @@
+# ===========================================
+# 前端构建镜像 - 多阶段构建
+# ===========================================
+
+# 阶段1: 构建
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# 复制package文件
+COPY frontend/package*.json ./
+
+# 安装依赖
+RUN npm ci --legacy-peer-deps
+
+# 复制源代码
+COPY frontend/ ./
+
+# 构建生产版本
+RUN npm run build
+
+# 阶段2: 生产镜像（仅包含构建产物）
+FROM nginx:alpine AS production
+
+# 复制构建产物到nginx目录
+COPY --from=builder /app/dist /usr/share/nginx/html/app
+
+# 复制欢迎页
+COPY Home/ /usr/share/nginx/html/
+
+# 暴露端口
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

@@ -1,0 +1,60 @@
+# ===========================================
+# Docker Compose 主编排文件
+# 账号管理系统
+# ===========================================
+
+version: '3.8'
+
+services:
+  # Nginx 反向代理 + 前端静态文件
+  nginx:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.frontend
+    container_name: account-nginx
+    ports:
+      - "${APP_PORT:-80}:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ../Home:/usr/share/nginx/html:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # FastAPI 后端
+  backend:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.backend
+    container_name: account-backend
+    environment:
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin121}
+    volumes:
+      - ../backend/accounts.db:/app/accounts.db
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8998/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  db-data:
+    driver: local

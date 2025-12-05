@@ -1,0 +1,40 @@
+# ===========================================
+# Docker Compose 生产环境覆盖配置
+# 使用方法: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# ===========================================
+
+version: '3.8'
+
+services:
+  nginx:
+    ports:
+      - "${APP_PORT:-80}:80"
+      - "${APP_SSL_PORT:-443}:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ../Home:/usr/share/nginx/html:ro
+      # SSL证书（如需启用HTTPS，取消下面注释）
+      # - ./ssl:/etc/nginx/ssl:ro
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+
+  backend:
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G

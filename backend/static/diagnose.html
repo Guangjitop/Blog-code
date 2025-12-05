@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系统管理控制台</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.6);
+            --border-color: rgba(148, 163, 184, 0.1);
+            --primary-gradient: linear-gradient(90deg, #3b82f6 0%, #6366f1 100%); /* 更新为您喜欢的横向渐变 */
+            --primary-glow: 0 0 20px rgba(139, 92, 246, 0.5);
+            --text-main: #f8fafc;
+            --text-secondary: #94a3b8;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* 粒子背景 */
+        #particle-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* 头部 */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            background: linear-gradient(to right, #fff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header-actions a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            padding: 8px 16px;
+            font-size: 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(4px);
+        }
+
+        .header-actions a:hover {
+            color: white;
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.1);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);
+        }
+
+        /* 卡片 */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h2 {
+            font-size: 18px;
+            color: var(--text-main);
+            margin-bottom: 25px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card h2::before {
+            content: '';
+            display: block;
+            width: 4px;
+            height: 18px;
+            background: var(--primary-gradient);
+            border-radius: 2px;
+            box-shadow: var(--primary-glow);
+        }
+
+        /* 统计 */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .stat-item {
+            background: rgba(15, 23, 42, 0.5);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            text-align: center;
+        }
+
+        .stat-item .number {
+            font-size: 32px;
+            font-weight: 700;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 5px;
+        }
+
+        .stat-item .label {
+            color: var(--text-secondary);
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* 表单区域布局修正 */
+        .form-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            align-items: flex-end; /* 底部对齐 */
+        }
+
+        .form-group {
+            flex: 1; /* 默认占据剩余空间 */
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 10px;
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        .form-group input {
+            width: 100%;
+            height: 46px; /* 强制高度与按钮一致 */
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border-color);
+            color: white;
+            padding: 0 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+
+        /* --- 按钮样式 (您选择的方案一) --- */
+        .btn {
+            padding: 0 24px;       /* 左右加宽 */
+            height: 46px;          /* 固定高度，与输入框一致 */
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;   /* 强制文字不换行 */
+            letter-spacing: 0.5px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-primary {
+            /* 横向渐变，比原来的更平滑 */
+            background: linear-gradient(90deg, #3b82f6 0%, #6366f1 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3); /* 底部投影 */
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.5); /* 悬停发光增强 */
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-danger {
+            background: transparent;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+            height: 32px; /* 小按钮高度 */
+            padding: 0 14px;
+        }
+        
+        .btn-danger:hover {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: #ef4444;
+        }
+
+        /* 表格 */
+        .table-container { overflow-x: auto; }
+        table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px; }
+        th { text-align: left; padding: 15px; color: var(--text-secondary); font-weight: 500; border-bottom: 1px solid var(--border-color); background: rgba(15, 23, 42, 0.3); }
+        td { padding: 15px; border-bottom: 1px solid var(--border-color); color: var(--text-main); }
+        tr:hover td { background: rgba(255, 255, 255, 0.02); }
+        
+        .key-text {
+            font-family: 'Monaco', monospace;
+            color: #a5b4fc;
+            background: rgba(99, 102, 241, 0.1);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 13px;
+            border: 1px solid rgba(99, 102, 241, 0.2);
+        }
+        
+        .copy-btn { background: transparent; color: var(--text-secondary); border: none; margin-left: 10px; cursor: pointer; font-size: 12px; }
+        .copy-btn:hover { color: white; }
+
+        .toast {
+            position: fixed; top: 20px; right: 20px; padding: 16px 24px;
+            background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.4);
+            color: #34d399; backdrop-filter: blur(10px); border-radius: 8px;
+            display: none; z-index: 1000; box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
+        }
+        .empty { text-align: center; padding: 60px; color: var(--text-secondary); }
+    </style>
+</head>
+<body>
+    <canvas id="particle-canvas"></canvas>
+
+    <div class="container">
+        <div class="header">
+            <h1>系统管理控制台</h1>
+            <div class="header-actions">
+                <a href="/docs" target="_blank">API 文档</a>
+                <a href="/admin/logout">安全退出</a>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>运行概览</h2>
+            <div class="stats" id="stats">
+                <div class="stat-item"><div class="number" id="totalKeys">-</div><div class="label">活跃授权码</div></div>
+                <div class="stat-item"><div class="number" id="totalAccounts">-</div><div class="label">托管账号</div></div>
+                <div class="stat-item"><div class="number" id="totalCategories">-</div><div class="label">业务分类</div></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>授权管理</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>备注标识</label>
+                    <input type="text" id="keyName" placeholder="输入客户名称或用途标识...">
+                </div>
+                <div class="form-group" style="flex: 0 0 auto;"> <button class="btn btn-primary" onclick="generateKey()">生成新授权</button>
+                </div>
+            </div>
+            
+            <div class="table-container">
+                <table>
+                    <thead><tr><th>ID</th><th>授权密钥 (Key)</th><th>备注</th><th>账号资源</th><th>分类权限</th><th>创建时间</th><th>操作</th></tr></thead>
+                    <tbody id="keysList"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast">操作已完成</div>
+
+    <script>
+        // 粒子动画
+        const canvas = document.getElementById('particle-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        
+        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        window.addEventListener('resize', resize);
+        resize();
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.vx = (Math.random() - 0.5) * 0.5;
+                this.vy = (Math.random() - 0.5) * 0.5;
+                this.size = Math.random() * 2 + 1;
+                this.color = `rgba(148, 163, 184, ${Math.random() * 0.5})`;
+            }
+            update() {
+                this.x += this.vx; this.y += this.vy;
+                if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
+                if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
+            }
+            draw() {
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color; ctx.fill();
+            }
+        }
+
+        function initParticles() {
+            particles = [];
+            const count = Math.floor(window.innerWidth / 10); 
+            for (let i = 0; i < count; i++) particles.push(new Particle());
+        }
+        function animateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let i = 0; i < particles.length; i++) {
+                particles[i].update(); particles[i].draw();
+                for (let j = i; j < particles.length; j++) {
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist < 100) {
+                        ctx.beginPath(); ctx.strokeStyle = `rgba(148, 163, 184, ${0.1 - dist/1000})`;
+                        ctx.lineWidth = 0.5; ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y); ctx.stroke();
+                    }
+                }
+            }
+            requestAnimationFrame(animateParticles);
+        }
+        initParticles(); animateParticles();
+
+        // 业务逻辑
+        async function loadKeys() {
+            try {
+                const res = await fetch('/admin/keys');
+                if (res.status === 401) { window.location.href = '/admin'; return; }
+                const keys = await res.json();
+                document.getElementById('totalKeys').textContent = keys.length;
+                let totalAcc = 0, totalCat = 0;
+                keys.forEach(k => { totalAcc += k.account_count; totalCat += k.category_count; });
+                document.getElementById('totalAccounts').textContent = totalAcc;
+                document.getElementById('totalCategories').textContent = totalCat;
+                const tbody = document.getElementById('keysList');
+                if (keys.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="empty">暂无数据，请生成新的授权码</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = keys.map(k => `
+                    <tr>
+                        <td style="color: #64748b;">#${k.id}</td>
+                        <td><span class="key-text">${k.key}</span><button class="copy-btn" onclick="copyKey('${k.key}')">复制</button></td>
+                        <td style="color: #cbd5e1">${k.name || '-'}</td>
+                        <td>${k.account_count}</td>
+                        <td>${k.category_count}</td>
+                        <td style="color: #64748b; font-size: 12px;">${k.created_at.replace('T', ' ').slice(0, 19)}</td>
+                        <td><button class="btn btn-danger" onclick="deleteKey(${k.id})">删除</button></td>
+                    </tr>`).join('');
+            } catch (e) { console.error("API加载失败", e); }
+        }
+        async function generateKey() {
+            const name = document.getElementById('keyName').value;
+            try {
+                const res = await fetch('/admin/keys/add?name=' + encodeURIComponent(name));
+                const data = await res.json();
+                if (data.success) { showToast('授权码已生成'); document.getElementById('keyName').value = ''; loadKeys(); }
+            } catch(e) { showToast('生成失败'); }
+        }
+        async function deleteKey(id) {
+            if (!confirm('确定删除该授权及相关数据吗？')) return;
+            try {
+                const res = await fetch('/admin/keys/delete?id=' + id);
+                const data = await res.json();
+                if (data.success) { showToast('删除成功'); loadKeys(); }
+            } catch(e) { showToast('删除失败'); }
+        }
+        function copyKey(key) { navigator.clipboard.writeText(key); showToast('已复制到剪贴板'); }
+        function showToast(msg) {
+            const toast = document.getElementById('toast'); toast.textContent = msg;
+            toast.style.display = 'block'; setTimeout(() => toast.style.display = 'none', 3000);
+        }
+        loadKeys();
+    </script>
+</body>
+</html>

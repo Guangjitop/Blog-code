@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>账号管理系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #e2e8f0; }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .glass-card { background: rgba(30, 41, 59, 0.4); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.05); transition: all 0.3s ease; }
+        .glass-card:hover { transform: translateY(-2px); background: rgba(30, 41, 59, 0.6); border-color: rgba(255, 255, 255, 0.1); box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5); }
+        .btn-primary { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); transition: all 0.3s ease; }
+        .btn-primary:hover { box-shadow: 0 0 15px rgba(59, 130, 246, 0.5); transform: translateY(-1px); }
+        .btn-danger { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); transition: all 0.3s ease; }
+        .btn-danger:hover { box-shadow: 0 0 15px rgba(239, 68, 68, 0.5); transform: translateY(-1px); }
+        .btn-emerald { background: linear-gradient(135deg, #10b981 0%, #059669 100%); transition: all 0.3s ease; }
+        .btn-emerald:hover { box-shadow: 0 0 15px rgba(16, 185, 129, 0.5); transform: translateY(-1px); }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+        [v-cloak] { display: none; }
+        .tab-btn { transition: all 0.3s ease; }
+        .tab-btn.active { background: rgba(59, 130, 246, 0.2); border-color: rgba(59, 130, 246, 0.5); color: #60a5fa; }
+        /* Toast 自顶向下动画 */
+        .toast-enter { animation: toastSlideIn 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
+        .toast-leave { animation: toastSlideOut 0.3s ease-in forwards; }
+        @keyframes toastSlideIn { from { transform: translateY(-100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes toastSlideOut { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-100px); opacity: 0; } }
+        /* 确认弹窗动画 */
+        .modal-enter { animation: modalSlideIn 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
+        @keyframes modalSlideIn { from { transform: translateY(-50px) scale(0.9); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+    </style>
+    <script>
+        tailwind.config = { darkMode: 'class', theme: { extend: { colors: { slate: { 850: '#1e293b', 900: '#0f172a' } } } } }
+    </script>
+</head>
+
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div id="app" v-cloak class="container mx-auto px-4 py-8 max-w-6xl">
+        <!-- Header -->
+        <header class="mb-10 flex justify-between items-center">
+            <div>
+                <h1 class="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300 mb-2">账号管理系统</h1>
+                <p class="text-slate-400">高效管理您的所有账号资源</p>
+            </div>
+            <div class="flex gap-3">
+                <button @click="fetchData" class="p-2 rounded-full glass hover:bg-slate-700 text-slate-300 transition-colors" title="刷新数据">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+            <div class="glass-card rounded-2xl p-6 relative overflow-hidden group">
+                <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-24 w-24 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                </div>
+                <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-1">总账号数</h3>
+                <p class="text-4xl font-bold text-white">{{ stats.total_accounts }}</p>
+            </div>
+            <div class="glass-card rounded-2xl p-6 relative overflow-hidden group">
+                <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-24 w-24 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-1">可用账号</h3>
+                <p class="text-4xl font-bold text-emerald-400">{{ stats.unused_accounts }}</p>
+            </div>
+            <div class="glass-card rounded-2xl p-6 relative overflow-hidden group">
+                <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-24 w-24 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-1">已用账号</h3>
+                <p class="text-4xl font-bold text-amber-400">{{ stats.used_accounts }}</p>
+            </div>
+            <div class="glass-card rounded-2xl p-6 relative overflow-hidden group">
+                <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-24 w-24 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                    </svg>
+                </div>
+                <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-1">分类数</h3>
+                <p class="text-4xl font-bold text-purple-400">{{ stats.category_count }}</p>
+            </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="flex gap-2 mb-6 flex-wrap">
+            <button @click="activeTab = 'accounts'" :class="{'active': activeTab === 'accounts'}" class="tab-btn px-4 py-2 rounded-lg glass border border-transparent text-slate-400 hover:text-white">📋 账号管理</button>
+            <button @click="activeTab = 'categories'" :class="{'active': activeTab === 'categories'}" class="tab-btn px-4 py-2 rounded-lg glass border border-transparent text-slate-400 hover:text-white">📁 分类管理</button>
+            <button @click="activeTab = 'get'" :class="{'active': activeTab === 'get'}" class="tab-btn px-4 py-2 rounded-lg glass border border-transparent text-slate-400 hover:text-white">🎯 获取账号</button>
+            <button @click="activeTab = 'api'" :class="{'active': activeTab === 'api'}" class="tab-btn px-4 py-2 rounded-lg glass border border-transparent text-slate-400 hover:text-white">🔗 API 接口</button>
+        </div>
+
+        <!-- Accounts Tab -->
+        <div v-show="activeTab === 'accounts'" class="glass rounded-2xl overflow-hidden shadow-2xl">
+            <div class="p-6 border-b border-slate-700/50 flex flex-col md:flex-row justify-between items-center gap-4">
+                <h2 class="text-xl font-semibold flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                    </svg>
+                    账号列表
+                </h2>
+                <div class="flex gap-3 w-full md:w-auto">
+                    <button @click="showAddModal = true" class="btn-primary px-4 py-2 rounded-lg text-white font-medium flex items-center justify-center gap-2 w-full md:w-auto">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                        添加账号
+                    </button>
+                    <button @click="resetAllAccounts" class="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 font-medium transition-colors flex items-center justify-center gap-2 w-full md:w-auto">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                        重置全部
+                    </button>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-slate-800/50">
+                        <tr>
+                            <th class="px-6 py-4 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">ID</th>
+                            <th class="px-6 py-4 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">邮箱</th>
+                            <th class="px-6 py-4 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">密码</th>
+                            <th class="px-6 py-4 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">分类</th>
+                            <th class="px-6 py-4 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">状态</th>
+                            <th class="px-6 py-4 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700/50">
+                        <tr v-if="loading"><td colspan="6" class="px-6 py-8 text-center text-slate-400">加载中...</td></tr>
+                        <tr v-else-if="accounts.length === 0"><td colspan="6" class="px-6 py-8 text-center text-slate-400">暂无账号数据</td></tr>
+                        <tr v-for="account in accounts" :key="account.id" class="hover:bg-slate-800/30 transition-colors">
+                            <td class="px-6 py-4 text-slate-300 font-mono">#{{ account.id }}</td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-white">{{ account.email }}</span>
+                                    <button @click="copyToClipboard(account.email)" class="text-slate-500 hover:text-blue-400 transition-colors" title="复制">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                                    </button>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-slate-400 font-mono">******</span>
+                                    <button @click="copyToClipboard(account.password)" class="text-slate-500 hover:text-blue-400 transition-colors" title="复制密码">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                                    </button>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4"><span class="bg-purple-500/20 text-purple-300 px-2 py-1 rounded text-xs">{{ account.category_name || '未分类' }}</span></td>
+                            <td class="px-6 py-4">
+                                <span v-if="account.is_used" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">已使用</span>
+                                <span v-else class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">未使用</span>
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <div class="flex justify-end gap-2">
+                                    <button @click="resetAccount(account.id)" class="p-2 rounded-lg hover:bg-amber-500/20 text-slate-400 hover:text-amber-400 transition-colors" title="重置状态">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                    </button>
+                                    <button @click="deleteAccount(account.id)" class="p-2 rounded-lg hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors" title="删除">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Categories Tab -->
+        <div v-show="activeTab === 'categories'" class="glass rounded-2xl overflow-hidden shadow-2xl p-6">
+            <div class="flex flex-col md:flex-row gap-4 mb-6 items-end">
+                <div class="flex-1 w-full">
+                    <label class="block text-slate-400 text-sm font-medium mb-2">分类名称</label>
+                    <input type="text" v-model="newCategory.name" placeholder="输入分类名称" class="w-full px-4 py-2.5 rounded-lg bg-slate-800/50 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500">
+                </div>
+                <div class="flex-1 w-full">
+                    <label class="block text-slate-400 text-sm font-medium mb-2">描述</label>
+                    <input type="text" v-model="newCategory.description" placeholder="可选描述" class="w-full px-4 py-2.5 rounded-lg bg-slate-800/50 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500">
+                </div>
+                <button @click="addCategory" class="btn-emerald px-6 py-2.5 rounded-lg text-white font-medium whitespace-nowrap flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                    添加分类
+                </button>
+            </div>
+            <div class="overflow-x-auto rounded-xl border border-slate-700/50">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-800/50 text-slate-300 text-sm uppercase tracking-wider">
+                            <th class="p-4 font-medium border-b border-slate-700/50">ID</th>
+                            <th class="p-4 font-medium border-b border-slate-700/50">名称</th>
+                            <th class="p-4 font-medium border-b border-slate-700/50">描述</th>
+                            <th class="p-4 font-medium border-b border-slate-700/50">账号数</th>
+                            <th class="p-4 font-medium border-b border-slate-700/50 text-right">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700/50 text-slate-300">
+                        <tr v-if="categories.length === 0"><td colspan="5" class="p-8 text-center text-slate-500">暂无分类</td></tr>
+                        <tr v-for="cat in categories" :key="cat.id" class="hover:bg-slate-800/30 transition-colors">
+                            <td class="p-4 font-mono text-purple-400">#{{ cat.id }}</td>
+                            <td class="p-4 font-medium text-white">{{ cat.name }}</td>
+                            <td class="p-4 text-slate-400">{{ cat.description || '-' }}</td>
+                            <td class="p-4"><span class="bg-slate-700 px-2 py-1 rounded text-xs">{{ cat.account_count }}</span></td>
+                            <td class="p-4 text-right">
+                                <button @click="deleteCategory(cat.id)" class="p-2 rounded-lg hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors" title="删除">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Get Account Tab -->
+        <div v-show="activeTab === 'get'" class="glass rounded-2xl overflow-hidden shadow-2xl p-8 max-w-2xl mx-auto">
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                </div>
+                <h2 class="text-2xl font-bold text-white mb-2">获取新账号</h2>
+                <p class="text-slate-400">选择一个分类，系统将自动为您分配一个未使用的账号</p>
+            </div>
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-slate-400 text-sm font-medium mb-2">选择分类</label>
+                    <select v-model="selectedCategoryId" class="w-full px-4 py-3 rounded-xl bg-slate-800/50 border border-slate-700 text-white focus:outline-none focus:border-emerald-500 text-lg">
+                        <option value="">全部分类</option>
+                        <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+                    </select>
+                </div>
+                <button @click="getAccount" class="btn-emerald w-full py-4 rounded-xl font-bold text-lg text-white shadow-lg flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                    立即获取
+                </button>
+                <div v-if="getResult" class="mt-6 p-6 rounded-xl bg-slate-900/80 border border-slate-700 font-mono text-sm text-emerald-400 whitespace-pre-line leading-relaxed shadow-inner">{{ getResult }}</div>
+            </div>
+        </div>
+
+        <!-- API Tab -->
+        <div v-show="activeTab === 'api'" class="glass rounded-2xl overflow-hidden shadow-2xl p-6">
+            <div class="mb-6">
+                <h2 class="text-2xl font-bold text-white mb-2 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
+                    API 接口文档
+                </h2>
+                <p class="text-slate-400">以下接口可用于第三方系统对接，所有请求需携带授权码 <code class="bg-slate-700 px-2 py-0.5 rounded text-emerald-400">key</code> 参数</p>
+            </div>
+
+            <!-- 当前授权码 -->
+            <div class="mb-6 p-4 rounded-xl bg-slate-800/50 border border-slate-700">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <span class="text-slate-400 text-sm">您的授权码：</span>
+                        <code class="ml-2 bg-slate-900 px-3 py-1 rounded text-emerald-400 font-mono">{{ apiKey }}</code>
+                    </div>
+                    <button @click="copyToClipboard(apiKey)" class="btn-primary px-3 py-1.5 rounded-lg text-sm text-white flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                        复制
+                    </button>
+                </div>
+            </div>
+
+            <!-- API 列表 -->
+            <div class="space-y-4">
+                <!-- 获取账号 API -->
+                <div class="p-4 rounded-xl bg-slate-800/30 border border-slate-700 hover:border-emerald-500/50 transition-colors">
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded text-xs font-bold">GET</span>
+                        <span class="text-white font-medium">获取账号</span>
+                        <span class="text-slate-500 text-sm">- 获取一个未使用的账号并标记为已使用</span>
+                    </div>
+                    <div class="bg-slate-900 rounded-lg p-3 mb-3">
+                        <code class="text-blue-400 text-sm break-all">{{ baseUrl }}/api/get-account?key={{ apiKey }}&category_id=分类ID&count=数量</code>
+                    </div>
+                    <div class="text-slate-400 text-sm mb-2">
+                        <span class="text-slate-500">参数说明：</span>
+                        <span class="text-amber-400">category_id</span> (可选) 指定分类，
+                        <span class="text-amber-400">count</span> (可选) 获取数量，默认1
+                    </div>
+                    <button @click="copyToClipboard(baseUrl + '/api/get-account?key=' + apiKey)" class="text-blue-400 hover:text-blue-300 text-sm flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                        复制链接
+                    </button>
+                </div>
+
+                <!-- 查询账号 API -->
+                <div class="p-4 rounded-xl bg-slate-800/30 border border-slate-700 hover:border-blue-500/50 transition-colors">
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded text-xs font-bold">GET</span>
+                        <span class="text-white font-medium">查询账号列表</span>
+                        <span class="text-slate-500 text-sm">- 获取账号列表（JSON格式）</span>
+                    </div>
+                    <div class="bg-slate-900 rounded-lg p-3 mb-3">
+                        <code class="text-blue-400 text-sm break-all">{{ baseUrl }}/api/query?key={{ apiKey }}&category_id=分类ID&is_used=true/false</code>
+                    </div>
+                    <div class="text-slate-400 text-sm mb-2">
+                        <span class="text-slate-500">参数说明：</span>
+                        <span class="text-amber-400">category_id</span> (可选) 按分类筛选，
+                        <span class="text-amber-400">is_used</span> (可选) 按使用状态筛选
+                    </div>
+                    <button @click="copyToClipboard(baseUrl + '/api/query?key=' + apiKey)" class="text-blue-400 hover:text-blue-300 text-sm flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                        复制链接
+                    </button>
+                </div>
+
+                <!-- 查询密码 API -->
+                <div class="p-4 rounded-xl bg-slate-800/30 border border-slate-700 hover:border-purple-500/50 transition-colors">
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded text-xs font-bold">GET</span>
+                        <span class="text-white font-medium">查询密码</span>
+                        <span class="text-slate-500 text-sm">- 根据邮箱查询账号密码</span>
+                    </div>
+                    <div class="bg-slate-900 rounded-lg p-3 mb-3">
+                        <code class="text-blue-400 text-sm break-all">{{ baseUrl }}/api/query/password?key={{ apiKey }}&email=邮箱地址</code>
+                    </div>
+                    <div class="text-slate-400 text-sm mb-2">
+                        <span class="text-slate-500">参数说明：</span>
+                        <span class="text-amber-400">email</span> (必填) 要查询的邮箱地址
+                    </div>
+                    <button @click="copyToClipboard(baseUrl + '/api/query/password?key=' + apiKey + '&email=')" class="text-blue-400 hover:text-blue-300 text-sm flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                        复制链接
+                    </button>
+                </div>
+
+                <!-- 统计信息 API -->
+                <div class="p-4 rounded-xl bg-slate-800/30 border border-slate-700 hover:border-amber-500/50 transition-colors">
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded text-xs font-bold">GET</span>
+                        <span class="text-white font-medium">统计信息</span>
+                        <span class="text-slate-500 text-sm">- 获取账号统计数据</span>
+                    </div>
+                    <div class="bg-slate-900 rounded-lg p-3 mb-3">
+                        <code class="text-blue-400 text-sm break-all">{{ baseUrl }}/api/stats?key={{ apiKey }}</code>
+                    </div>
+                    <div class="text-slate-400 text-sm mb-2">
+                        <span class="text-slate-500">返回：</span>总账号数、已使用数、未使用数、分类数
+                    </div>
+                    <button @click="copyToClipboard(baseUrl + '/api/stats?key=' + apiKey)" class="text-blue-400 hover:text-blue-300 text-sm flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                        复制链接
+                    </button>
+                </div>
+
+                <!-- 获取分类 API -->
+                <div class="p-4 rounded-xl bg-slate-800/30 border border-slate-700 hover:border-cyan-500/50 transition-colors">
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded text-xs font-bold">GET</span>
+                        <span class="text-white font-medium">获取分类列表</span>
+                        <span class="text-slate-500 text-sm">- 获取所有分类信息</span>
+                    </div>
+                    <div class="bg-slate-900 rounded-lg p-3 mb-3">
+                        <code class="text-blue-400 text-sm break-all">{{ baseUrl }}/admin/categories?key={{ apiKey }}</code>
+                    </div>
+                    <div class="text-slate-400 text-sm mb-2">
+                        <span class="text-slate-500">返回：</span>分类ID、名称、描述、账号数量
+                    </div>
+                    <button @click="copyToClipboard(baseUrl + '/admin/categories?key=' + apiKey)" class="text-blue-400 hover:text-blue-300 text-sm flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                        复制链接
+                    </button>
+                </div>
+            </div>
+
+            <!-- 使用示例 -->
+            <div class="mt-6 p-4 rounded-xl bg-slate-800/30 border border-slate-700">
+                <h3 class="text-white font-medium mb-3 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    使用示例
+                </h3>
+                <div class="bg-slate-900 rounded-lg p-4 font-mono text-sm">
+                    <p class="text-slate-500 mb-2"># 浏览器直接访问获取账号：</p>
+                    <p class="text-emerald-400 mb-4 break-all">{{ baseUrl }}/api/get-account?key={{ apiKey }}</p>
+                    <p class="text-slate-500 mb-2"># cURL 请求示例：</p>
+                    <p class="text-blue-400 break-all">curl "{{ baseUrl }}/api/get-account?key={{ apiKey }}"</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Account Modal -->
+        <div v-if="showAddModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" @click.self="showAddModal = false">
+            <div class="glass rounded-2xl w-full max-w-md p-6 shadow-2xl">
+                <h3 class="text-xl font-bold mb-4 text-white">添加新账号</h3>
+                <form @submit.prevent="addAccount">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-slate-300 mb-2">邮箱账号</label>
+                        <input v-model="newAccount.email" type="email" required class="w-full px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500" placeholder="请输入邮箱地址">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-slate-300 mb-2">密码</label>
+                        <input v-model="newAccount.password" type="text" required class="w-full px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500" placeholder="请输入密码">
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-slate-300 mb-2">分类</label>
+                        <select v-model="newAccount.category_id" class="w-full px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500">
+                            <option value="">未分类</option>
+                            <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+                        </select>
+                    </div>
+                    <div class="flex gap-3">
+                        <button type="submit" :disabled="submitting" class="flex-1 btn-primary px-4 py-2 rounded-lg text-white font-medium disabled:opacity-50">{{ submitting ? '添加中...' : '确认添加' }}</button>
+                        <button type="button" @click="showAddModal = false" class="flex-1 px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-medium transition-colors">取消</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Toast 自顶向下弹入 -->
+        <div v-if="toast.show" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 glass rounded-xl px-6 py-4 shadow-2xl toast-enter" :class="toast.type === 'error' ? 'border-red-500/50' : 'border-emerald-500/50'">
+            <div class="flex items-center gap-3">
+                <div v-if="toast.type === 'success'" class="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
+                </div>
+                <div v-else class="flex-shrink-0 w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                </div>
+                <p class="text-base font-medium" :class="toast.type === 'error' ? 'text-red-300' : 'text-emerald-300'">{{ toast.message }}</p>
+            </div>
+        </div>
+
+        <!-- 自定义确认弹窗 -->
+        <div v-if="confirmModal.show" class="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/60 backdrop-blur-sm" @click.self="confirmModal.show = false; confirmModal.resolve(false)">
+            <div class="glass rounded-2xl w-full max-w-md p-6 shadow-2xl modal-enter">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="flex-shrink-0 w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
+                        <svg class="w-6 h-6 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                    </div>
+                    <h3 class="text-xl font-bold text-white">确认操作</h3>
+                </div>
+                <p class="text-slate-300 mb-6 pl-13">{{ confirmModal.message }}</p>
+                <div class="flex gap-3 justify-end">
+                    <button @click="confirmModal.show = false; confirmModal.resolve(false)" class="px-5 py-2.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-medium transition-colors">取消</button>
+                    <button @click="confirmModal.show = false; confirmModal.resolve(true)" class="btn-primary px-5 py-2.5 rounded-lg text-white font-medium">确定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, onMounted } = Vue;
+
+        createApp({
+            setup() {
+                const accounts = ref([]);
+                const categories = ref([]);
+                const stats = ref({ total_accounts: 0, used_accounts: 0, unused_accounts: 0, category_count: 0 });
+                const loading = ref(true);
+                const activeTab = ref('accounts');
+                const showAddModal = ref(false);
+                const submitting = ref(false);
+                const newAccount = ref({ email: '', password: '', category_id: '' });
+                const newCategory = ref({ name: '', description: '' });
+                const selectedCategoryId = ref('');
+                const getResult = ref('');
+                const toast = ref({ show: false, message: '', type: 'success' });
+                const confirmModal = ref({ show: false, message: '', resolve: null });
+
+                const showConfirm = (message) => {
+                    return new Promise((resolve) => {
+                        confirmModal.value = { show: true, message, resolve };
+                    });
+                };
+
+                const getUserKey = () => {
+                    const match = document.cookie.match(/(?:^|;\s*)user_key=([^;]*)/);
+                    return match ? decodeURIComponent(match[1]) : null;
+                };
+
+                const apiKey = ref(getUserKey() || '');
+                const baseUrl = ref(window.location.origin);
+
+                const showToast = (message, type = 'success') => {
+                    toast.value = { show: true, message, type };
+                    setTimeout(() => { toast.value.show = false; }, 3000);
+                };
+
+                const fetchData = async () => {
+                    loading.value = true;
+                    const key = getUserKey();
+                    if (!key) { loading.value = false; return; }
+
+                    try {
+                        const [accountsRes, statsRes, catsRes] = await Promise.all([
+                            axios.get('/admin/accounts', { params: { key } }),
+                            axios.get('/api/stats', { params: { key } }),
+                            axios.get('/admin/categories', { params: { key } })
+                        ]);
+                        accounts.value = accountsRes.data;
+                        stats.value = statsRes.data;
+                        categories.value = catsRes.data;
+                    } catch (error) {
+                        if (error.response?.status === 401) {
+                            document.cookie = 'user_key=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+                            showToast('授权已失效,请重新登录', 'error');
+                            setTimeout(() => { window.location.reload(); }, 1500);
+                        } else {
+                            showToast('获取数据失败', 'error');
+                        }
+                    } finally {
+                        loading.value = false;
+                    }
+                };
+
+                const addAccount = async () => {
+                    if (!newAccount.value.email || !newAccount.value.password) return;
+                    const key = getUserKey();
+                    if (!key) { showToast('未登录', 'error'); return; }
+                    submitting.value = true;
+                    try {
+                        const params = { key, email: newAccount.value.email, password: newAccount.value.password };
+                        if (newAccount.value.category_id) params.category_id = newAccount.value.category_id;
+                        await axios.get('/admin/accounts/add', { params });
+                        showToast('账号添加成功');
+                        showAddModal.value = false;
+                        newAccount.value = { email: '', password: '', category_id: '' };
+                        fetchData();
+                    } catch (error) {
+                        showToast(error.response?.data?.detail || '添加失败', 'error');
+                    } finally {
+                        submitting.value = false;
+                    }
+                };
+
+                const deleteAccount = async (id) => {
+                    const confirmed = await showConfirm('确定要删除这个账号吗？');
+                    if (!confirmed) return;
+                    const key = getUserKey();
+                    try {
+                        await axios.get('/admin/accounts/delete', { params: { key, id } });
+                        showToast('账号已删除');
+                        fetchData();
+                    } catch (error) { showToast('删除失败', 'error'); }
+                };
+
+                const resetAccount = async (id) => {
+                    const key = getUserKey();
+                    try {
+                        await axios.get('/admin/accounts/reset', { params: { key, id } });
+                        showToast('账号状态已重置');
+                        fetchData();
+                    } catch (error) { showToast('重置失败', 'error'); }
+                };
+
+                const resetAllAccounts = async () => {
+                    const confirmed = await showConfirm('确定要重置所有账号的状态吗？');
+                    if (!confirmed) return;
+                    const key = getUserKey();
+                    try {
+                        await axios.get('/admin/accounts/reset-all', { params: { key } });
+                        showToast('所有账号已重置');
+                        fetchData();
+                    } catch (error) { showToast('重置失败', 'error'); }
+                };
+
+                const addCategory = async () => {
+                    if (!newCategory.value.name) { showToast('请输入分类名称', 'error'); return; }
+                    const key = getUserKey();
+                    if (!key) { showToast('未登录，请先登录', 'error'); return; }
+                    try {
+                        const params = { key, name: newCategory.value.name };
+                        if (newCategory.value.description) params.description = newCategory.value.description;
+                        await axios.get('/admin/categories/add', { params });
+                        showToast('分类添加成功');
+                        newCategory.value = { name: '', description: '' };
+                        fetchData();
+                    } catch (error) { showToast(error.response?.data?.detail || '添加失败', 'error'); }
+                };
+
+                const deleteCategory = async (id) => {
+                    const confirmed = await showConfirm('确定删除此分类？删除后该分类下的账号将变为未分类。');
+                    if (!confirmed) return;
+                    const key = getUserKey();
+                    try {
+                        await axios.get('/admin/categories/delete', { params: { key, id } });
+                        showToast('分类已删除');
+                        fetchData();
+                    } catch (error) { showToast('删除失败', 'error'); }
+                };
+
+                const getAccount = async () => {
+                    const key = getUserKey();
+                    try {
+                        const params = { key };
+                        if (selectedCategoryId.value) params.category_id = selectedCategoryId.value;
+                        const res = await axios.get('/api/get-account', { params, transformResponse: [data => data] });
+                        getResult.value = res.data;
+                        fetchData();
+                    } catch (error) { showToast('获取失败', 'error'); }
+                };
+
+                const copyToClipboard = (text) => {
+                    navigator.clipboard.writeText(text).then(() => { showToast('已复制到剪贴板'); });
+                };
+
+                onMounted(() => { 
+                    const key = getUserKey();
+                    if (!key) {
+                        // 未登录，重定向到登录页
+                        window.location.replace('/user');
+                        return;
+                    }
+                    fetchData(); 
+                });
+
+                return { accounts, categories, stats, loading, activeTab, showAddModal, submitting, newAccount, newCategory, selectedCategoryId, getResult, toast, confirmModal, apiKey, baseUrl, fetchData, addAccount, deleteAccount, resetAccount, resetAllAccounts, addCategory, deleteCategory, getAccount, copyToClipboard };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
