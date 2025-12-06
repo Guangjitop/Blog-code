@@ -1325,11 +1325,11 @@ def query_password(
 # ==================== 音乐搜索代理 ====================
 
 # 音乐API地址配置（支持环境变量）
-# 如果音乐服务在同一台服务器上，设置为本地地址
-# Docker容器内访问宿主机服务，使用 host.docker.internal 或服务器IP
-# 例如: http://host.docker.internal:3000/ 或 http://107.174.140.100:3000/
-# 注意：如果host.docker.internal不工作，直接使用服务器IP地址
-METING_API_URL = os.getenv("METING_API_URL", "http://107.174.140.100:3000/")
+# 如果音乐服务在同一台服务器上，支持多个地址（用逗号分隔），自动尝试
+# 格式: "本地地址,外部地址" 例如: "http://host.docker.internal:3000/,http://107.174.140.100:3000/"
+# 或者只设置一个: "http://107.174.140.100:3000/"
+METING_API_URLS = os.getenv("METING_API_URL", "http://host.docker.internal:3000/,http://107.174.140.100:3000/").split(",")
+METING_API_URLS = [url.strip() for url in METING_API_URLS if url.strip()]  # 清理并过滤空值
 NETEASE_API_BASE = "https://music.163.com"
 NETEASE_SEARCH_API = f"{NETEASE_API_BASE}/api/search/get/web"
 NETEASE_SONG_DETAIL_API = f"{NETEASE_API_BASE}/api/song/detail"
@@ -1432,23 +1432,32 @@ async def music_playlist(
     if response:
         response.headers["Access-Control-Allow-Origin"] = "*"
     
-    try:
-        url = f"{METING_API_URL}?type=playlist&id={id}&server=netease"
-        # 增加超时时间到15秒
-        timeout = httpx.Timeout(15.0, connect=10.0)
-        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-            api_response = await client.get(url)
-            if api_response.status_code != 200:
-                return {"error": "获取歌单失败", "code": 502, "results": []}
-            
-            data = api_response.json()
-            return data[:limit] if isinstance(data, list) and len(data) > limit else data
-    except httpx.TimeoutException:
+    # 尝试多个API地址
+    last_error = None
+    for api_url in METING_API_URLS:
+        try:
+            url = f"{api_url.rstrip('/')}?type=playlist&id={id}&server=netease"
+            timeout = httpx.Timeout(15.0, connect=10.0)
+            async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+                api_response = await client.get(url)
+                if api_response.status_code != 200:
+                    continue
+                
+                data = api_response.json()
+                return data[:limit] if isinstance(data, list) and len(data) > limit else data
+        except (httpx.TimeoutException, httpx.ConnectError) as e:
+            last_error = e
+            continue
+        except Exception as e:
+            last_error = e
+            continue
+    
+    if isinstance(last_error, httpx.TimeoutException):
         return {"error": "请求超时，请检查网络连接", "code": 504, "results": []}
-    except httpx.ConnectError as e:
-        return {"error": f"无法连接到音乐服务: {str(e)}", "code": 502, "results": []}
-    except Exception as e:
-        return {"error": f"获取歌单失败: {str(e)}", "code": 500, "results": []}
+    elif isinstance(last_error, httpx.ConnectError):
+        return {"error": f"无法连接到音乐服务: {str(last_error)}", "code": 502, "results": []}
+    else:
+        return {"error": f"获取歌单失败: {str(last_error) if last_error else '未知错误'}", "code": 500, "results": []}
 
 @app.get("/api/music/lyrics", tags=["音乐搜索"])
 async def music_lyrics(
@@ -1460,19 +1469,18 @@ async def music_lyrics(
     if response:
         response.headers["Access-Control-Allow-Origin"] = "*"
     
-    try:
-        url = f"{METING_API_URL}?type=lrc&id={id}&server={server}"
-        # 增加超时时间到15秒
-        timeout = httpx.Timeout(15.0, connect=10.0)
-        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-            api_response = await client.get(url)
-            if api_response.status_code != 200:
-                return PlainTextResponse(content="", media_type="text/plain")
-            return PlainTextResponse(content=api_response.text, media_type="text/plain")
-    except httpx.TimeoutException:
-        return PlainTextResponse(content="", media_type="text/plain")
-    except Exception:
-        return PlainTextResponse(content="", media_type="text/plain")
+    # 尝试多个API地址
+    for api_url in METING_API_URLS:
+        try:
+            url = f"{api_url.rstrip('/')}?type=lrc&id={id}&server={server}"
+            timeout = httpx.Timeout(15.0, connect=10.0)
+            async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+                api_response = await client.get(url)
+                if api_response.status_code == 200:
+                    return PlainTextResponse(content=api_response.text, media_type="text/plain")
+        except:
+            continue
+    return PlainTextResponse(content="", media_type="text/plain")
 
 @app.get("/api/meting", tags=["音乐搜索"])
 async def meting_proxy(
@@ -1617,7 +1625,11 @@ async def _try_meting_api(params: dict, request_type: str):
     """尝试使用 Meting API 作为备用方案"""
     try:
         query_string = urlencode(params)
-        url = f"{METING_API_URL}?{query_string}"
+        # 尝试多个API地址
+        last_error = None
+        for api_url in METING_API_URLS:
+            try:
+                url = f"{api_url.rstrip('/')}?{query_string}"
         print(f"[MUSIC-API] 使用备用API")
         
         # 增加超时时间到15秒
