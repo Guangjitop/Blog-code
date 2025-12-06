@@ -1488,13 +1488,15 @@ public class DeveloperLife {
 
         // 获取后端 API 基础 URL
         function getBackendApiBase() {
-            // 如果当前是 localhost 或 127.0.0.1，使用 localhost:8999
+            // 如果当前是 localhost 或 127.0.0.1，使用 localhost:8999（本地开发）
             const hostname = window.location.hostname;
             if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::]' || hostname === '::1') {
                 return 'http://localhost:8999';
             }
-            // 否则使用相同的 hostname，但端口改为 8999
-            return `${window.location.protocol}//${hostname}:8999`;
+            // 生产环境：使用nginx代理路径，通过 /api/ 路径访问后端
+            // 使用 hostname 而不是 host，确保不包含端口号，始终通过nginx的标准端口（80/443）访问
+            // 这样外部访问时会通过nginx的 /api/ 代理转发到后端，支持HTTPS
+            return `${window.location.protocol}//${hostname}/api`;
         }
 
         // Music API - 使用后端代理 API
@@ -1503,6 +1505,11 @@ public class DeveloperLife {
             backendApiBase: getBackendApiBase(),
             // 主 API (通过后端代理)
             get metingUrl() {
+                // 如果 backendApiBase 已经包含 /api，则直接拼接 /meting
+                // 否则拼接 /api/meting（本地开发环境）
+                if (this.backendApiBase.endsWith('/api')) {
+                    return `${this.backendApiBase}/meting`;
+                }
                 return `${this.backendApiBase}/api/meting`;
             },
             // 重试配置

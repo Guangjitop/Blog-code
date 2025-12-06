@@ -16,6 +16,9 @@ services:
       - ../Home:/usr/share/nginx/html:ro
       # SSL证书（HTTPS 已启用）
       - ./ssl:/etc/nginx/ssl:ro
+    # 允许nginx访问宿主机上的服务（如音乐API的3000端口）
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     logging:
       driver: "json-file"
       options:

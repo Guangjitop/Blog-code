@@ -1332,20 +1332,21 @@ def query_password(
 def get_default_music_api_endpoints() -> str:
     """
     根据运行环境返回默认的音乐API端点列表
-    Docker环境: host.docker.internal:3000 优先
-    直接部署: localhost:3000 优先
+    Docker环境: 优先使用nginx代理路径，然后尝试直接访问
+    直接部署: 优先使用nginx代理路径（如果nginx在同一服务器），然后尝试直接访问
     都包含外部IP作为fallback
     """
     # 检测是否在Docker容器中运行
     is_docker = os.path.exists('/.dockerenv') or os.path.exists('/run/.containerenv')
     
     if is_docker:
-        # Docker环境：优先使用外部IP（同一服务器），然后尝试host.docker.internal
-        # 因为音乐API可能只监听外部IP，host.docker.internal可能返回错误页面
-        return "http://107.174.140.100:3000/,http://host.docker.internal:3000/"
+        # Docker环境：优先使用nginx代理路径（通过nginx容器名访问）
+        # 然后尝试直接访问宿主机上的音乐API服务
+        # nginx容器名是"nginx"（docker-compose服务名），在容器网络中可以通过服务名访问
+        return "http://nginx/music-api/,http://host.docker.internal:3000/,http://107.174.140.100:3000/"
     else:
-        # 直接部署：使用localhost访问本地服务
-        return "http://localhost:3000/,http://127.0.0.1:3000/,http://107.174.140.100:3000/"
+        # 直接部署：优先使用nginx代理路径（通过localhost），然后尝试直接访问
+        return "http://localhost/music-api/,http://localhost:3000/,http://127.0.0.1:3000/,http://107.174.140.100:3000/"
 
 # 从环境变量读取配置，如果未设置则使用默认值
 env_meting_url = os.getenv("METING_API_URL")

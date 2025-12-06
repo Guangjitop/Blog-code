@@ -46,37 +46,71 @@ if ! docker ps | grep -q account-nginx; then
 fi
 
 echo ""
-echo "步骤 1: 使用 standalone 模式申请证书（需要临时停止 Nginx）"
+echo "步骤 1: 临时停止 Nginx 容器以释放 80 端口"
 echo "注意: 此方法需要 80 端口可用"
 echo ""
 
+# 临时停止nginx容器
+cd "$PROJECT_ROOT/deploy"
+if docker ps | grep -q account-nginx; then
+    echo "正在停止 Nginx 容器..."
+    docker-compose stop nginx
+    NGINX_WAS_RUNNING=true
+else
+    NGINX_WAS_RUNNING=false
+fi
+
+echo ""
+echo "步骤 2: 使用 standalone 模式申请证书"
+echo ""
+
 # 使用 standalone 模式申请证书
-# 这种方式不需要修改 Nginx 配置，certbot 会临时启动一个服务器
-certbot certonly \
+# certbot 会临时启动一个服务器来验证域名
+if certbot certonly \
     --standalone \
     --preferred-challenges http \
     -d "$DOMAIN" \
     --email "$EMAIL" \
     --agree-tos \
-    --non-interactive \
-    --cert-path "$SSL_DIR" \
-    --key-path "$SSL_DIR" \
-    --fullchain-path "$SSL_DIR/fullchain.pem" \
-    --privkey-path "$SSL_DIR/privkey.pem"
+    --non-interactive; then
+    echo "✓ 证书申请成功"
+else
+    echo "错误: 证书申请失败"
+    # 如果nginx之前在运行，尝试重启它
+    if [ "$NGINX_WAS_RUNNING" = true ]; then
+        echo "正在重启 Nginx 容器..."
+        docker-compose start nginx
+    fi
+    exit 1
+fi
 
 # 复制证书到项目目录
 if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
     echo ""
-    echo "步骤 2: 复制证书文件到项目目录"
+    echo "步骤 3: 复制证书文件到项目目录"
     sudo cp "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" "$SSL_DIR/"
     sudo cp "/etc/letsencrypt/live/$DOMAIN/privkey.pem" "$SSL_DIR/"
     sudo chown -R $(whoami):$(whoami) "$SSL_DIR"
     
-    echo "✓ 证书已复制到: $SSL_DIR"
+    # 验证文件是否复制成功
+    if [ -f "$SSL_DIR/fullchain.pem" ] && [ -f "$SSL_DIR/privkey.pem" ]; then
+        echo "✓ 证书已复制到: $SSL_DIR"
+        # 设置正确的文件权限
+        chmod 644 "$SSL_DIR/fullchain.pem"
+        chmod 600 "$SSL_DIR/privkey.pem"
+    else
+        echo "错误: 证书文件复制失败"
+        exit 1
+    fi
+    
     echo ""
-    echo "步骤 3: 重启 Nginx 容器以加载新证书"
+    echo "步骤 4: 重启 Nginx 容器以加载新证书"
     cd "$PROJECT_ROOT/deploy"
-    docker-compose restart nginx
+    if [ "$NGINX_WAS_RUNNING" = true ]; then
+        docker-compose start nginx
+    else
+        docker-compose up -d nginx
+    fi
     
     echo ""
     echo "==========================================="

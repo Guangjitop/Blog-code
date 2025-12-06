@@ -18,11 +18,16 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - ../Home:/usr/share/nginx/html:ro
+      # SSL证书（如果使用HTTPS）
+      - ./ssl:/etc/nginx/ssl:ro
     depends_on:
       backend:
         condition: service_healthy
     networks:
       - app-network
+    # 允许nginx访问宿主机上的服务（如音乐API的3000端口）
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/"]
