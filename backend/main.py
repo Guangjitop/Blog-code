@@ -1325,11 +1325,50 @@ def query_password(
 # ==================== 音乐搜索代理 ====================
 
 # 音乐API地址配置（支持环境变量）
-# 如果音乐服务在同一台服务器上，支持多个地址（用逗号分隔），自动尝试
-# 格式: "本地地址,外部地址" 例如: "http://host.docker.internal:3000/,http://107.174.140.100:3000/"
-# 或者只设置一个: "http://107.174.140.100:3000/"
-METING_API_URLS = os.getenv("METING_API_URL", "http://host.docker.internal:3000/,http://107.174.140.100:3000/").split(",")
+# ==================== 音乐API配置 ====================
+# 音乐服务端点配置 - 支持多个地址（用逗号分隔），自动fallback
+# 优先使用本地地址（localhost或host.docker.internal），失败后尝试外部地址
+
+def get_default_music_api_endpoints() -> str:
+    """
+    根据运行环境返回默认的音乐API端点列表
+    Docker环境: host.docker.internal:3000 优先
+    直接部署: localhost:3000 优先
+    都包含外部IP作为fallback
+    """
+    # 检测是否在Docker容器中运行
+    is_docker = os.path.exists('/.dockerenv') or os.path.exists('/run/.containerenv')
+    
+    if is_docker:
+        # Docker环境：使用host.docker.internal访问宿主机服务
+        return "http://host.docker.internal:3000/,http://107.174.140.100:3000/"
+    else:
+        # 直接部署：使用localhost访问本地服务
+        return "http://localhost:3000/,http://127.0.0.1:3000/,http://107.174.140.100:3000/"
+
+# 从环境变量读取配置，如果未设置则使用默认值
+env_meting_url = os.getenv("METING_API_URL")
+if env_meting_url:
+    meting_url_config = env_meting_url
+    config_source = "环境变量 METING_API_URL"
+else:
+    meting_url_config = get_default_music_api_endpoints()
+    config_source = "默认配置（根据运行环境自动选择）"
+
+METING_API_URLS = meting_url_config.split(",")
 METING_API_URLS = [url.strip() for url in METING_API_URLS if url.strip()]  # 清理并过滤空值
+
+# 检测运行环境
+is_docker_env = os.path.exists('/.dockerenv') or os.path.exists('/run/.containerenv')
+env_type = 'Docker' if is_docker_env else 'Host'
+
+print(f"[MUSIC-API-CONFIG] =========================================")
+print(f"[MUSIC-API-CONFIG] 运行环境: {env_type}")
+print(f"[MUSIC-API-CONFIG] 配置来源: {config_source}")
+print(f"[MUSIC-API-CONFIG] 配置端点数量: {len(METING_API_URLS)}")
+for idx, endpoint in enumerate(METING_API_URLS, 1):
+    print(f"[MUSIC-API-CONFIG]   端点 {idx}: {endpoint}")
+print(f"[MUSIC-API-CONFIG] =========================================")
 NETEASE_API_BASE = "https://music.163.com"
 NETEASE_SEARCH_API = f"{NETEASE_API_BASE}/api/search/get/web"
 NETEASE_SONG_DETAIL_API = f"{NETEASE_API_BASE}/api/song/detail"
@@ -1346,6 +1385,110 @@ NETEASE_HEADERS = {
     "Accept-Encoding": "gzip, deflate, br",
     "Connection": "keep-alive"
 }
+
+# ==================== 音乐API辅助函数 ====================
+
+async def try_music_api_with_fallback(
+    endpoints: List[str],
+    request_path: str,
+    timeout_seconds: float = 10.0
+) -> dict:
+    """
+    尝试多个音乐API端点直到成功，实现自动fallback
+    
+    Args:
+        endpoints: API端点列表
+        request_path: 请求路径（包含查询参数）
+        timeout_seconds: 单个请求超时时间
+    
+    Returns:
+        API响应数据
+    
+    Raises:
+        HTTPException: 所有端点都失败时
+    """
+    attempts = []
+    
+    for idx, endpoint in enumerate(endpoints, 1):
+        attempt_start = datetime.now(ZoneInfo('Asia/Shanghai'))
+        endpoint_url = f"{endpoint.rstrip('/')}{request_path}"
+        
+        print(f"[MUSIC-API] Attempting endpoint {idx}/{len(endpoints)}: {endpoint}")
+        
+        try:
+            # 设置超时：连接超时5秒，读取超时10秒
+            timeout = httpx.Timeout(timeout_seconds, connect=5.0)
+            
+            async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+                api_response = await client.get(endpoint_url)
+                
+                response_time = (datetime.now(ZoneInfo('Asia/Shanghai')) - attempt_start).total_seconds()
+                
+                if api_response.status_code == 200:
+                    print(f"[MUSIC-API] ✓ Success with {endpoint} ({response_time:.2f}s)")
+                    return api_response.json()
+                else:
+                    error_msg = f"HTTP {api_response.status_code}"
+                    print(f"[MUSIC-API] ✗ Failed: {error_msg} ({response_time:.2f}s)")
+                    attempts.append({
+                        "endpoint": endpoint,
+                        "error_type": "http_error",
+                        "error_message": error_msg,
+                        "timestamp": attempt_start.isoformat(),
+                        "response_time": response_time
+                    })
+                    continue  # 立即尝试下一个端点
+                    
+        except httpx.ConnectError as e:
+            response_time = (datetime.now(ZoneInfo('Asia/Shanghai')) - attempt_start).total_seconds()
+            error_msg = f"Connection refused: {str(e)}"
+            print(f"[MUSIC-API] ✗ Connection failed: {endpoint} ({response_time:.2f}s)")
+            attempts.append({
+                "endpoint": endpoint,
+                "error_type": "connection",
+                "error_message": error_msg,
+                "timestamp": attempt_start.isoformat(),
+                "response_time": response_time
+            })
+            # 连接错误立即fallback，不等待超时
+            continue
+            
+        except httpx.TimeoutException:
+            response_time = (datetime.now(ZoneInfo('Asia/Shanghai')) - attempt_start).total_seconds()
+            error_msg = f"Request timeout after {timeout_seconds}s"
+            print(f"[MUSIC-API] ✗ Timeout: {endpoint} ({response_time:.2f}s)")
+            attempts.append({
+                "endpoint": endpoint,
+                "error_type": "timeout",
+                "error_message": error_msg,
+                "timestamp": attempt_start.isoformat(),
+                "response_time": response_time
+            })
+            continue
+            
+        except Exception as e:
+            response_time = (datetime.now(ZoneInfo('Asia/Shanghai')) - attempt_start).total_seconds()
+            error_msg = str(e)
+            print(f"[MUSIC-API] ✗ Unexpected error: {error_msg} ({response_time:.2f}s)")
+            attempts.append({
+                "endpoint": endpoint,
+                "error_type": "unknown",
+                "error_message": error_msg,
+                "timestamp": attempt_start.isoformat(),
+                "response_time": response_time
+            })
+            continue
+    
+    # 所有端点都失败
+    print(f"[MUSIC-API] All {len(endpoints)} endpoints failed for request: {request_path}")
+    
+    # 返回详细的错误信息
+    return {
+        "error": "All music API endpoints failed",
+        "code": 503,
+        "attempts": attempts,
+        "suggestion": "请检查音乐API服务是否正常运行，或稍后重试"
+    }
 
 def convert_netease_to_meting_format(song_data: dict) -> dict:
     """将网易云 API 返回的歌曲数据转换为 Meting 格式"""
@@ -1396,41 +1539,29 @@ async def music_search(
     limit: int = Query(30, description="返回数量限制"),
     response: Response = None
 ):
-    """代理音乐搜索请求，解决 CORS 问题"""
+    """代理音乐搜索请求，解决 CORS 问题，支持多端点自动fallback"""
+    # 设置CORS头（对所有响应，包括错误响应）
     if response:
         response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
     
     if not keyword or not keyword.strip():
         return {"error": "搜索关键词不能为空", "code": 400, "results": []}
     
-    # 尝试多个API地址
-    last_error = None
-    for api_url in METING_API_URLS:
-        try:
-            url = f"{api_url.rstrip('/')}?type=search&s={keyword}&server=netease"
-            timeout = httpx.Timeout(15.0, connect=10.0)
-            async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-                api_response = await client.get(url)
-                if api_response.status_code != 200:
-                    continue  # 尝试下一个地址
-                
-                data = api_response.json()
-                # 限制返回数量
-                return data[:limit] if isinstance(data, list) and len(data) > limit else data
-        except (httpx.TimeoutException, httpx.ConnectError) as e:
-            last_error = e
-            continue  # 尝试下一个地址
-        except Exception as e:
-            last_error = e
-            continue  # 尝试下一个地址
+    # 使用fallback helper尝试所有端点
+    request_path = f"?type=search&s={keyword}&server=netease"
+    result = await try_music_api_with_fallback(METING_API_URLS, request_path, timeout_seconds=10.0)
     
-    # 所有地址都失败
-    if isinstance(last_error, httpx.TimeoutException):
-        return {"error": "搜索请求超时，请检查网络连接", "code": 504, "results": []}
-    elif isinstance(last_error, httpx.ConnectError):
-        return {"error": f"无法连接到音乐服务: {str(last_error)}", "code": 502, "results": []}
-    else:
-        return {"error": f"搜索失败: {str(last_error) if last_error else '未知错误'}", "code": 500, "results": []}
+    # 如果是错误响应，直接返回
+    if isinstance(result, dict) and "error" in result:
+        return result
+    
+    # 限制返回数量
+    if isinstance(result, list) and len(result) > limit:
+        return result[:limit]
+    
+    return result
 
 @app.get("/api/music/playlist", tags=["音乐搜索"])
 async def music_playlist(
@@ -1438,36 +1569,26 @@ async def music_playlist(
     limit: int = Query(50, description="返回数量限制"),
     response: Response = None
 ):
-    """获取歌单内容"""
+    """获取歌单内容，支持多端点自动fallback"""
+    # 设置CORS头（对所有响应，包括错误响应）
     if response:
         response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
     
-    # 尝试多个API地址
-    last_error = None
-    for api_url in METING_API_URLS:
-        try:
-            url = f"{api_url.rstrip('/')}?type=playlist&id={id}&server=netease"
-            timeout = httpx.Timeout(15.0, connect=10.0)
-            async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-                api_response = await client.get(url)
-                if api_response.status_code != 200:
-                    continue
-                
-                data = api_response.json()
-                return data[:limit] if isinstance(data, list) and len(data) > limit else data
-        except (httpx.TimeoutException, httpx.ConnectError) as e:
-            last_error = e
-            continue
-        except Exception as e:
-            last_error = e
-            continue
+    # 使用fallback helper尝试所有端点
+    request_path = f"?type=playlist&id={id}&server=netease"
+    result = await try_music_api_with_fallback(METING_API_URLS, request_path, timeout_seconds=10.0)
     
-    if isinstance(last_error, httpx.TimeoutException):
-        return {"error": "请求超时，请检查网络连接", "code": 504, "results": []}
-    elif isinstance(last_error, httpx.ConnectError):
-        return {"error": f"无法连接到音乐服务: {str(last_error)}", "code": 502, "results": []}
-    else:
-        return {"error": f"获取歌单失败: {str(last_error) if last_error else '未知错误'}", "code": 500, "results": []}
+    # 如果是错误响应，直接返回
+    if isinstance(result, dict) and "error" in result:
+        return result
+    
+    # 限制返回数量
+    if isinstance(result, list) and len(result) > limit:
+        return result[:limit]
+    
+    return result
 
 @app.get("/api/music/lyrics", tags=["音乐搜索"])
 async def music_lyrics(
@@ -1475,21 +1596,30 @@ async def music_lyrics(
     server: str = Query("netease", description="服务器"),
     response: Response = None
 ):
-    """获取歌词内容，返回纯文本"""
+    """获取歌词内容，返回纯文本，支持多端点自动fallback"""
+    # 设置CORS头
     if response:
         response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    
+    print(f"[MUSIC-API] Fetching lyrics for song: {id}")
     
     # 尝试多个API地址
-    for api_url in METING_API_URLS:
+    for idx, api_url in enumerate(METING_API_URLS, 1):
         try:
             url = f"{api_url.rstrip('/')}?type=lrc&id={id}&server={server}"
-            timeout = httpx.Timeout(15.0, connect=10.0)
+            timeout = httpx.Timeout(10.0, connect=5.0)
             async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
                 api_response = await client.get(url)
                 if api_response.status_code == 200:
+                    print(f"[MUSIC-API] ✓ Lyrics fetched from endpoint {idx}/{len(METING_API_URLS)}")
                     return PlainTextResponse(content=api_response.text, media_type="text/plain")
-        except:
+        except Exception as e:
+            print(f"[MUSIC-API] ✗ Endpoint {idx} failed for lyrics: {str(e)}")
             continue
+    
+    print(f"[MUSIC-API] All endpoints failed for lyrics: {id}")
     return PlainTextResponse(content="", media_type="text/plain")
 
 @app.get("/api/meting", tags=["音乐搜索"])
@@ -1635,19 +1765,31 @@ async def _try_meting_api(params: dict, request_type: str):
     """尝试使用 Meting API 作为备用方案，支持多个地址自动切换"""
     query_string = urlencode(params)
     last_error = None
+    attempts = []
     
     # 尝试多个API地址
-    for api_url in METING_API_URLS:
+    for idx, api_url in enumerate(METING_API_URLS, 1):
+        attempt_start = datetime.now(ZoneInfo('Asia/Shanghai'))
         try:
             url = f"{api_url.rstrip('/')}?{query_string}"
-            print(f"[MUSIC-API] 尝试API地址: {api_url}")
+            print(f"[MUSIC-API] 尝试端点 {idx}/{len(METING_API_URLS)}: {api_url} (type={request_type})")
             
-            timeout = httpx.Timeout(15.0, connect=10.0)
+            # 优化超时配置：连接超时3秒（快速检测连接失败），读取超时8秒（快速检测响应超时）
+            timeout = httpx.Timeout(8.0, connect=3.0)
             async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
                 fallback_response = await client.get(url)
                 
+                response_time = (datetime.now(ZoneInfo('Asia/Shanghai')) - attempt_start).total_seconds()
+                
                 if fallback_response.status_code != 200:
-                    print(f"[MUSIC-API] API地址 {api_url} 失败: {fallback_response.status_code}")
+                    error_msg = f"HTTP {fallback_response.status_code}"
+                    print(f"[MUSIC-API] ✗ 端点 {idx}/{len(METING_API_URLS)} 失败: {error_msg} ({response_time:.2f}s)")
+                    attempts.append({
+                        "endpoint": api_url,
+                        "error_type": "http_error",
+                        "error_message": error_msg,
+                        "response_time": response_time
+                    })
                     continue  # 尝试下一个地址
                 
                 content_type = fallback_response.headers.get("content-type", "").lower()
@@ -1656,10 +1798,17 @@ async def _try_meting_api(params: dict, request_type: str):
                 # 检查是否是 HTML（错误页面）
                 text_stripped = response_text.strip()
                 if text_stripped.startswith("<!DOCTYPE") or text_stripped.startswith("<html") or text_stripped.startswith("<?xml"):
-                    print(f"[MUSIC-API] API地址 {api_url} 返回HTML错误")
+                    error_msg = "返回HTML错误页面"
+                    print(f"[MUSIC-API] ✗ 端点 {idx}/{len(METING_API_URLS)} 失败: {error_msg} ({response_time:.2f}s)")
+                    attempts.append({
+                        "endpoint": api_url,
+                        "error_type": "html_error",
+                        "error_message": error_msg,
+                        "response_time": response_time
+                    })
                     continue  # 尝试下一个地址
                 
-                print(f"[MUSIC-API] API地址 {api_url} 成功")
+                print(f"[MUSIC-API] ✓ 端点 {idx}/{len(METING_API_URLS)} 成功 ({response_time:.2f}s)")
                 
                 # 如果是歌词请求，返回文本
                 if request_type == "lrc":
@@ -1668,37 +1817,88 @@ async def _try_meting_api(params: dict, request_type: str):
                 # 对于其他请求，尝试解析为 JSON
                 try:
                     data = fallback_response.json()
-                    print(f"[MUSIC-API] 成功: {len(data) if isinstance(data, list) else 'object'}")
+                    result_count = len(data) if isinstance(data, list) else ('object' if isinstance(data, dict) else 'unknown')
+                    print(f"[MUSIC-API] ✓ 成功解析: {result_count} 条结果")
                     return data
-                except (ValueError, TypeError):
-                    print(f"[MUSIC-API] JSON解析失败")
+                except (ValueError, TypeError) as json_err:
+                    print(f"[MUSIC-API] ✗ JSON解析失败: {str(json_err)}")
                     if "text" in content_type and "json" not in content_type:
                         return PlainTextResponse(content=response_text, media_type=content_type or "text/plain")
+                    attempts.append({
+                        "endpoint": api_url,
+                        "error_type": "json_parse_error",
+                        "error_message": f"JSON解析失败: {str(json_err)}",
+                        "response_time": response_time
+                    })
                     continue  # 尝试下一个地址
                     
         except httpx.TimeoutException as e:
-            print(f"[MUSIC-API] API地址 {api_url} 超时")
+            response_time = (datetime.now(ZoneInfo('Asia/Shanghai')) - attempt_start).total_seconds()
+            error_msg = f"请求超时（连接超时3s，读取超时8s）"
+            print(f"[MUSIC-API] ✗ 端点 {idx}/{len(METING_API_URLS)} 超时: {error_msg} ({response_time:.2f}s)")
+            attempts.append({
+                "endpoint": api_url,
+                "error_type": "timeout",
+                "error_message": error_msg,
+                "response_time": response_time
+            })
             last_error = e
             continue  # 尝试下一个地址
         except httpx.ConnectError as e:
-            print(f"[MUSIC-API] API地址 {api_url} 连接失败: {str(e)}")
+            response_time = (datetime.now(ZoneInfo('Asia/Shanghai')) - attempt_start).total_seconds()
+            error_msg = f"连接失败: {str(e)}"
+            print(f"[MUSIC-API] ✗ 端点 {idx}/{len(METING_API_URLS)} 连接失败: {error_msg} ({response_time:.2f}s)")
+            attempts.append({
+                "endpoint": api_url,
+                "error_type": "connection",
+                "error_message": error_msg,
+                "response_time": response_time
+            })
             last_error = e
+            # 连接错误立即失败，不等待超时（已通过3秒连接超时实现）
             continue  # 尝试下一个地址
         except Exception as e:
-            print(f"[MUSIC-API] API地址 {api_url} 错误: {str(e)}")
+            response_time = (datetime.now(ZoneInfo('Asia/Shanghai')) - attempt_start).total_seconds()
+            error_msg = f"未知错误: {str(e)}"
+            print(f"[MUSIC-API] ✗ 端点 {idx}/{len(METING_API_URLS)} 错误: {error_msg} ({response_time:.2f}s)")
+            attempts.append({
+                "endpoint": api_url,
+                "error_type": "unknown",
+                "error_message": error_msg,
+                "response_time": response_time
+            })
             last_error = e
             continue  # 尝试下一个地址
     
     # 所有地址都失败
+    total_time = sum(attempt.get("response_time", 0) for attempt in attempts)
+    print(f"[MUSIC-API] ✗ 所有 {len(METING_API_URLS)} 个端点都失败 (总耗时: {total_time:.2f}s)")
+    print(f"[MUSIC-API] 失败详情: {attempts}")
+    
     if isinstance(last_error, httpx.TimeoutException):
-        print(f"[MUSIC-API] 所有API地址超时")
-        return {"error": "音乐搜索请求超时，请稍后重试", "code": 504, "results": []}
+        return {
+            "error": "音乐搜索请求超时，请稍后重试",
+            "code": 504,
+            "results": [],
+            "attempts": attempts,
+            "suggestion": "所有API端点都超时，请检查网络连接或音乐服务状态"
+        }
     elif isinstance(last_error, httpx.ConnectError):
-        print(f"[MUSIC-API] 所有API地址连接失败")
-        return {"error": "无法连接到音乐服务", "code": 502, "results": []}
+        return {
+            "error": "无法连接到音乐服务",
+            "code": 502,
+            "results": [],
+            "attempts": attempts,
+            "suggestion": "无法连接到任何API端点，请检查音乐服务是否运行在配置的地址上"
+        }
     else:
-        print(f"[MUSIC-API] 所有API地址失败")
-        return {"error": "音乐搜索服务暂时不可用", "code": 500, "results": []}
+        return {
+            "error": "音乐搜索服务暂时不可用",
+            "code": 500,
+            "results": [],
+            "attempts": attempts,
+            "suggestion": "所有API端点都失败，请检查服务配置"
+        }
 
 # ==================== 网站统计 API ====================
 

@@ -1605,11 +1605,16 @@ public class DeveloperLife {
             async getHotSongs() {
                 try {
                     const url = `${this.metingUrl}?type=playlist&id=3778678&server=netease`;
-                    const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+                    // 增加到25秒超时，允许后端尝试多个端点（每个端点最多8秒，2个端点最多16秒）
+                    const res = await fetch(url, { signal: AbortSignal.timeout(25000) });
                     if (!res.ok) throw new Error('API 请求失败');
                     return await res.json();
                 } catch (e) {
                     console.error('获取热门歌曲失败:', e);
+                    // 优化错误提示
+                    if (e.name === 'TimeoutError' || e.message.includes('timeout')) {
+                        console.error('请求超时：后端可能正在尝试多个API端点，请稍后重试');
+                    }
                     return [];
                 }
             },
