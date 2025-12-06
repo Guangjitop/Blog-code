@@ -1365,8 +1365,10 @@ async def get_netease_play_url(song_id: str) -> str:
     try:
         # 网易云播放链接 API 可能需要 POST 请求，这里先尝试 GET
         url = f"{NETEASE_PLAY_URL_API}?id={song_id}&ids=[{song_id}]&br=320000"
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url, headers=NETEASE_HEADERS, timeout=5.0)
+        # 增加超时时间到10秒
+        timeout = httpx.Timeout(10.0, connect=8.0)
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+            response = await client.get(url, headers=NETEASE_HEADERS)
             if response.status_code == 200:
                 data = response.json()
                 if data.get("code") == 200 and data.get("data"):
@@ -1398,8 +1400,10 @@ async def music_search(
     
     try:
         url = f"{METING_API_URL}?type=search&s={keyword}&server=netease"
-        async with httpx.AsyncClient() as client:
-            api_response = await client.get(url, timeout=8.0)
+        # 增加超时时间到15秒，并配置更长的连接超时
+        timeout = httpx.Timeout(15.0, connect=10.0)
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+            api_response = await client.get(url)
             if api_response.status_code != 200:
                 return {"error": "音乐搜索服务暂时不可用", "code": 502, "results": []}
             
@@ -1407,7 +1411,9 @@ async def music_search(
             # 限制返回数量
             return data[:limit] if isinstance(data, list) and len(data) > limit else data
     except httpx.TimeoutException:
-        return {"error": "搜索请求超时", "code": 504, "results": []}
+        return {"error": "搜索请求超时，请检查网络连接", "code": 504, "results": []}
+    except httpx.ConnectError as e:
+        return {"error": f"无法连接到音乐服务: {str(e)}", "code": 502, "results": []}
     except Exception as e:
         return {"error": f"搜索失败: {str(e)}", "code": 500, "results": []}
 
@@ -1423,15 +1429,19 @@ async def music_playlist(
     
     try:
         url = f"{METING_API_URL}?type=playlist&id={id}&server=netease"
-        async with httpx.AsyncClient() as client:
-            api_response = await client.get(url, timeout=8.0)
+        # 增加超时时间到15秒
+        timeout = httpx.Timeout(15.0, connect=10.0)
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+            api_response = await client.get(url)
             if api_response.status_code != 200:
                 return {"error": "获取歌单失败", "code": 502, "results": []}
             
             data = api_response.json()
             return data[:limit] if isinstance(data, list) and len(data) > limit else data
     except httpx.TimeoutException:
-        return {"error": "请求超时", "code": 504, "results": []}
+        return {"error": "请求超时，请检查网络连接", "code": 504, "results": []}
+    except httpx.ConnectError as e:
+        return {"error": f"无法连接到音乐服务: {str(e)}", "code": 502, "results": []}
     except Exception as e:
         return {"error": f"获取歌单失败: {str(e)}", "code": 500, "results": []}
 
@@ -1447,8 +1457,10 @@ async def music_lyrics(
     
     try:
         url = f"{METING_API_URL}?type=lrc&id={id}&server={server}"
-        async with httpx.AsyncClient() as client:
-            api_response = await client.get(url, timeout=8.0)
+        # 增加超时时间到15秒
+        timeout = httpx.Timeout(15.0, connect=10.0)
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+            api_response = await client.get(url)
             if api_response.status_code != 200:
                 return PlainTextResponse(content="", media_type="text/plain")
             return PlainTextResponse(content=api_response.text, media_type="text/plain")
@@ -1499,8 +1511,10 @@ async def meting_proxy(
                 }
                 search_url = f"{NETEASE_SEARCH_API}?{urlencode(search_params)}"
                 
-                async with httpx.AsyncClient() as client:
-                    netease_response = await client.get(search_url, headers=NETEASE_HEADERS, timeout=8.0)
+                # 增加超时时间到15秒
+                timeout = httpx.Timeout(15.0, connect=10.0)
+                async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+                    netease_response = await client.get(search_url, headers=NETEASE_HEADERS)
                     print(f"[MUSIC-API] 网易云API响应: {netease_response.status_code}")
                     
                     if netease_response.status_code != 200:
@@ -1572,8 +1586,10 @@ async def meting_proxy(
             
             try:
                 lyric_url = f"{NETEASE_LYRIC_API}?id={song_id}&lv=-1&kv=-1&tv=-1"
-                async with httpx.AsyncClient() as client:
-                    lyric_response = await client.get(lyric_url, headers=NETEASE_HEADERS, timeout=8.0)
+                # 增加超时时间到15秒
+                timeout = httpx.Timeout(15.0, connect=10.0)
+                async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+                    lyric_response = await client.get(lyric_url, headers=NETEASE_HEADERS)
                     if lyric_response.status_code == 200:
                         lyric_data = lyric_response.json()
                         if lyric_data.get("code") == 200:
@@ -1599,8 +1615,10 @@ async def _try_meting_api(params: dict, request_type: str):
         url = f"{METING_API_URL}?{query_string}"
         print(f"[MUSIC-API] 使用备用API")
         
-        async with httpx.AsyncClient() as client:
-            fallback_response = await client.get(url, timeout=8.0)
+        # 增加超时时间到15秒
+        timeout = httpx.Timeout(15.0, connect=10.0)
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+            fallback_response = await client.get(url)
             
             if fallback_response.status_code != 200:
                 print(f"[MUSIC-API] 备用API失败: {fallback_response.status_code}")
