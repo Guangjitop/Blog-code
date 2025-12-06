@@ -1403,24 +1403,34 @@ async def music_search(
     if not keyword or not keyword.strip():
         return {"error": "搜索关键词不能为空", "code": 400, "results": []}
     
-    try:
-        url = f"{METING_API_URL}?type=search&s={keyword}&server=netease"
-        # 增加超时时间到15秒，并配置更长的连接超时
-        timeout = httpx.Timeout(15.0, connect=10.0)
-        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-            api_response = await client.get(url)
-            if api_response.status_code != 200:
-                return {"error": "音乐搜索服务暂时不可用", "code": 502, "results": []}
-            
-            data = api_response.json()
-            # 限制返回数量
-            return data[:limit] if isinstance(data, list) and len(data) > limit else data
-    except httpx.TimeoutException:
+    # 尝试多个API地址
+    last_error = None
+    for api_url in METING_API_URLS:
+        try:
+            url = f"{api_url.rstrip('/')}?type=search&s={keyword}&server=netease"
+            timeout = httpx.Timeout(15.0, connect=10.0)
+            async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+                api_response = await client.get(url)
+                if api_response.status_code != 200:
+                    continue  # 尝试下一个地址
+                
+                data = api_response.json()
+                # 限制返回数量
+                return data[:limit] if isinstance(data, list) and len(data) > limit else data
+        except (httpx.TimeoutException, httpx.ConnectError) as e:
+            last_error = e
+            continue  # 尝试下一个地址
+        except Exception as e:
+            last_error = e
+            continue  # 尝试下一个地址
+    
+    # 所有地址都失败
+    if isinstance(last_error, httpx.TimeoutException):
         return {"error": "搜索请求超时，请检查网络连接", "code": 504, "results": []}
-    except httpx.ConnectError as e:
-        return {"error": f"无法连接到音乐服务: {str(e)}", "code": 502, "results": []}
-    except Exception as e:
-        return {"error": f"搜索失败: {str(e)}", "code": 500, "results": []}
+    elif isinstance(last_error, httpx.ConnectError):
+        return {"error": f"无法连接到音乐服务: {str(last_error)}", "code": 502, "results": []}
+    else:
+        return {"error": f"搜索失败: {str(last_error) if last_error else '未知错误'}", "code": 500, "results": []}
 
 @app.get("/api/music/playlist", tags=["音乐搜索"])
 async def music_playlist(
@@ -1622,57 +1632,72 @@ async def meting_proxy(
         return {"error": f"音乐搜索服务暂时不可用", "code": 500, "results": []}
 
 async def _try_meting_api(params: dict, request_type: str):
-    """尝试使用 Meting API 作为备用方案"""
-    try:
-        query_string = urlencode(params)
-        # 尝试多个API地址
-        last_error = None
-        for api_url in METING_API_URLS:
-            try:
-                url = f"{api_url.rstrip('/')}?{query_string}"
-        print(f"[MUSIC-API] 使用备用API")
-        
-        # 增加超时时间到15秒
-        timeout = httpx.Timeout(15.0, connect=10.0)
-        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-            fallback_response = await client.get(url)
+    """尝试使用 Meting API 作为备用方案，支持多个地址自动切换"""
+    query_string = urlencode(params)
+    last_error = None
+    
+    # 尝试多个API地址
+    for api_url in METING_API_URLS:
+        try:
+            url = f"{api_url.rstrip('/')}?{query_string}"
+            print(f"[MUSIC-API] 尝试API地址: {api_url}")
             
-            if fallback_response.status_code != 200:
-                print(f"[MUSIC-API] 备用API失败: {fallback_response.status_code}")
-                return {"error": "音乐搜索服务暂时不可用", "code": 502, "results": []}
-            
-            content_type = fallback_response.headers.get("content-type", "").lower()
-            response_text = fallback_response.text
-            
-            # 检查是否是 HTML（错误页面）
-            text_stripped = response_text.strip()
-            if text_stripped.startswith("<!DOCTYPE") or text_stripped.startswith("<html") or text_stripped.startswith("<?xml"):
-                print(f"[MUSIC-API] 备用API返回HTML错误")
-                return {"error": "音乐搜索服务暂时不可用", "code": 502, "results": []}
-            
-            # 如果是歌词请求，返回文本
-            if request_type == "lrc":
-                return PlainTextResponse(content=response_text, media_type="text/plain")
-            
-            # 对于其他请求，尝试解析为 JSON
-            try:
-                data = fallback_response.json()
-                print(f"[MUSIC-API] 备用API成功: {len(data) if isinstance(data, list) else 'object'}")
-                return data
-            except (ValueError, TypeError):
-                print(f"[MUSIC-API] 备用API JSON解析失败")
-                if "text" in content_type and "json" not in content_type:
-                    return PlainTextResponse(content=response_text, media_type=content_type or "text/plain")
-                return {"error": "音乐API返回了无效的响应", "code": 502, "results": []}
+            timeout = httpx.Timeout(15.0, connect=10.0)
+            async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+                fallback_response = await client.get(url)
                 
-    except httpx.TimeoutException:
-        print(f"[MUSIC-API] 备用API超时")
+                if fallback_response.status_code != 200:
+                    print(f"[MUSIC-API] API地址 {api_url} 失败: {fallback_response.status_code}")
+                    continue  # 尝试下一个地址
+                
+                content_type = fallback_response.headers.get("content-type", "").lower()
+                response_text = fallback_response.text
+                
+                # 检查是否是 HTML（错误页面）
+                text_stripped = response_text.strip()
+                if text_stripped.startswith("<!DOCTYPE") or text_stripped.startswith("<html") or text_stripped.startswith("<?xml"):
+                    print(f"[MUSIC-API] API地址 {api_url} 返回HTML错误")
+                    continue  # 尝试下一个地址
+                
+                print(f"[MUSIC-API] API地址 {api_url} 成功")
+                
+                # 如果是歌词请求，返回文本
+                if request_type == "lrc":
+                    return PlainTextResponse(content=response_text, media_type="text/plain")
+                
+                # 对于其他请求，尝试解析为 JSON
+                try:
+                    data = fallback_response.json()
+                    print(f"[MUSIC-API] 成功: {len(data) if isinstance(data, list) else 'object'}")
+                    return data
+                except (ValueError, TypeError):
+                    print(f"[MUSIC-API] JSON解析失败")
+                    if "text" in content_type and "json" not in content_type:
+                        return PlainTextResponse(content=response_text, media_type=content_type or "text/plain")
+                    continue  # 尝试下一个地址
+                    
+        except httpx.TimeoutException as e:
+            print(f"[MUSIC-API] API地址 {api_url} 超时")
+            last_error = e
+            continue  # 尝试下一个地址
+        except httpx.ConnectError as e:
+            print(f"[MUSIC-API] API地址 {api_url} 连接失败: {str(e)}")
+            last_error = e
+            continue  # 尝试下一个地址
+        except Exception as e:
+            print(f"[MUSIC-API] API地址 {api_url} 错误: {str(e)}")
+            last_error = e
+            continue  # 尝试下一个地址
+    
+    # 所有地址都失败
+    if isinstance(last_error, httpx.TimeoutException):
+        print(f"[MUSIC-API] 所有API地址超时")
         return {"error": "音乐搜索请求超时，请稍后重试", "code": 504, "results": []}
-    except httpx.RequestError as e:
-        print(f"[MUSIC-API] 备用API网络错误: {str(e)}")
+    elif isinstance(last_error, httpx.ConnectError):
+        print(f"[MUSIC-API] 所有API地址连接失败")
         return {"error": "无法连接到音乐服务", "code": 502, "results": []}
-    except Exception as e:
-        print(f"[MUSIC-API] 备用API意外错误: {str(e)}")
+    else:
+        print(f"[MUSIC-API] 所有API地址失败")
         return {"error": "音乐搜索服务暂时不可用", "code": 500, "results": []}
 
 # ==================== 网站统计 API ====================
