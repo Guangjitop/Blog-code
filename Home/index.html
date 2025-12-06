@@ -1837,48 +1837,103 @@ public class DeveloperLife {
             }
         }
 
+        // 播放状态标志，防止重复调用
+        let isPlayingTrack = false;
+        let nextTrackTimer = null;
+
         // 播放曲目
         async function playTrack(index) {
             const playlist = getCurrentPlaylist();
             if (!playlist[index]) return;
             
-            playerState.index = index;
-            const track = playlist[index];
-            
-            // 获取音频源
-            let src = '';
-            if (playerState.mode === 'local') {
-                src = track.path || `musics/${track.filename}`;
-            } else {
-                // 在线音乐：检查是否需要动态获取播放链接
-                src = track.url;
-                
-                // 如果 url 是 API 端点格式或为空，需要获取真实播放链接
-                if (!src || src.includes('/song/url')) {
-                    const songId = track.id;
-                    if (songId) {
-                        showToast('正在获取播放链接...', 'info', 2000);
-                        console.log(`[MUSIC-PLAYER] 获取播放链接: ${songId}`);
-                        src = await MusicAPI.getSongUrl(songId);
-                        
-                        // 更新缓存的 URL
-                        if (src) {
-                            track.url = src;
-                        }
-                    }
-                }
-            }
-            
-            if (!src) {
-                showToast('无法获取音频源，可能是版权限制', 'error');
-                // 自动跳到下一首
-                setTimeout(() => nextTrack(), 1500);
+            // 防止重复调用
+            if (isPlayingTrack) {
+                console.log('[MUSIC-PLAYER] 正在切换曲目，忽略重复请求');
                 return;
             }
             
-            audio.src = src;
+            // 清除之前的自动下一首定时器
+            if (nextTrackTimer) {
+                clearTimeout(nextTrackTimer);
+                nextTrackTimer = null;
+            }
+            
+            isPlayingTrack = true;
             
             try {
+                playerState.index = index;
+                const track = playlist[index];
+                
+                // 先停止当前播放并清空源
+                audio.pause();
+                audio.src = '';
+                audio.load(); // 重置音频元素
+                
+                // 等待一小段时间，确保之前的请求完全停止
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                // 获取音频源
+                let src = '';
+                if (playerState.mode === 'local') {
+                    src = track.path || `musics/${track.filename}`;
+                } else {
+                    // 在线音乐：检查是否需要动态获取播放链接
+                    src = track.url;
+                    
+                    // 如果 url 是 API 端点格式或为空，需要获取真实播放链接
+                    if (!src || src.includes('/song/url')) {
+                        const songId = track.id;
+                        if (songId) {
+                            showToast('正在获取播放链接...', 'info', 2000);
+                            console.log(`[MUSIC-PLAYER] 获取播放链接: ${songId}`);
+                            src = await MusicAPI.getSongUrl(songId);
+                            
+                            // 更新缓存的 URL
+                            if (src) {
+                                track.url = src;
+                            }
+                        }
+                    }
+                }
+                
+                if (!src) {
+                    showToast('无法获取音频源，可能是版权限制', 'error');
+                    // 自动跳到下一首（延迟更长时间，避免快速循环）
+                    nextTrackTimer = setTimeout(() => {
+                        nextTrackTimer = null;
+                        isPlayingTrack = false;
+                        nextTrack();
+                    }, 2000);
+                    return;
+                }
+                
+                // 设置新的音频源
+                audio.src = src;
+                
+                // 等待音频加载
+                await new Promise((resolve, reject) => {
+                    const onCanPlay = () => {
+                        audio.removeEventListener('canplay', onCanPlay);
+                        audio.removeEventListener('error', onError);
+                        resolve();
+                    };
+                    const onError = (e) => {
+                        audio.removeEventListener('canplay', onCanPlay);
+                        audio.removeEventListener('error', onError);
+                        reject(new Error('音频加载失败'));
+                    };
+                    audio.addEventListener('canplay', onCanPlay);
+                    audio.addEventListener('error', onError);
+                    
+                    // 设置超时
+                    setTimeout(() => {
+                        audio.removeEventListener('canplay', onCanPlay);
+                        audio.removeEventListener('error', onError);
+                        reject(new Error('音频加载超时'));
+                    }, 10000);
+                });
+                
+                // 播放音频
                 await audio.play();
                 playerState.isPlaying = true;
                 updatePlayerUI();
@@ -1902,9 +1957,25 @@ public class DeveloperLife {
                 
             } catch (e) {
                 console.error('播放失败:', e);
+                
+                // 如果是AbortError，说明是被新请求中断，不显示错误
+                if (e.name === 'AbortError') {
+                    console.log('[MUSIC-PLAYER] 播放请求被中断（正常情况）');
+                    return;
+                }
+                
                 showToast('播放失败，可能是版权限制', 'error');
-                // 自动跳到下一首
-                setTimeout(() => nextTrack(), 1500);
+                // 自动跳到下一首（延迟更长时间，避免快速循环）
+                nextTrackTimer = setTimeout(() => {
+                    nextTrackTimer = null;
+                    isPlayingTrack = false;
+                    nextTrack();
+                }, 2000);
+            } finally {
+                // 如果不是因为自动下一首而返回，重置标志
+                if (!nextTrackTimer) {
+                    isPlayingTrack = false;
+                }
             }
         }
 
