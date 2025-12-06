@@ -1,16 +1,22 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>blog.mytype.top</title>
+    <title>blog.mytype.top - Code Universe</title>
     <!-- 引入 THREE.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root {
-            --bg-color: #050505; /* 更深邃的黑 */
+            --bg-color: #050505;
             --text-color: #e6edf3;
             --accent-color: #58a6ff;
+            /* 原主色调 */
+            --secondary-color: #bc13fe;
+            /* 新增辅色调 */
             --nav-bg: rgba(22, 27, 34, 0.6);
             --netease-red: #c20c0c;
             --success-green: #3fb950;
@@ -25,7 +31,7 @@
         body {
             background-color: var(--bg-color);
             color: var(--text-color);
-            font-family: 'Noto Sans SC', sans-serif;
+            font-family: 'Consolas', 'Fira Code', 'Noto Sans SC', sans-serif;
             overflow: hidden;
             height: 100vh;
             position: relative;
@@ -38,10 +44,11 @@
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: 1; /* 银河在最底层 */
+            z-index: 1;
+            /* 银河在最底层 */
         }
 
-        /* 背景代码纹理，降低透明度，作为暗纹存在 */
+        /* 背景代码纹理 (JS动态打字) */
         #code-bg {
             position: absolute;
             top: 0;
@@ -49,75 +56,83 @@
             width: 100%;
             height: 100%;
             padding: 20px;
-            font-family: 'Fira Code', monospace;
+            font-family: 'Consolas', 'Fira Code', monospace;
             font-size: 14px;
             line-height: 1.5;
-            color: #1f2428; /* 极暗的代码色，不抢戏 */
+            color: rgba(88, 166, 255, 0.15);
+            /* 极暗的蓝色代码 */
             z-index: 0;
-            opacity: 0.3;
             overflow: hidden;
             white-space: pre-wrap;
             pointer-events: none;
         }
 
-        #canvas-particles { /* 未被使用，但保留 */
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 20; /* 鼠标特效层级较高 */
-            pointer-events: none;
-        }
-        
-        /* --- UI 界面 --- */
-        header {
+        /* --- 2. 新版导航栏 (替换原有) --- */
+        nav {
             position: fixed;
             top: 0;
             width: 100%;
-            z-index: 100;
             display: flex;
             justify-content: center;
-            padding: 25px;
+            padding: 20px 0;
+            z-index: 100;
+            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.9), transparent);
         }
 
-        nav {
-            background: var(--nav-bg);
-            backdrop-filter: blur(5px);
-            border-radius: 50px;
-            padding: 10px 35px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            transition: 0.3s;
-        }
-
-        nav:hover {
-            border-color: var(--accent-color);
-            box-shadow: 0 0 15px rgba(88, 166, 255, 0.2);
-        }
-
-        nav ul {
+        .nav-links {
             display: flex;
-            list-style: none;
             gap: 40px;
+            backdrop-filter: blur(5px);
+            padding: 10px 40px;
+            border-radius: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.03);
         }
 
-        nav a {
-            color: var(--text-color);
+        .nav-item {
+            color: rgba(255, 255, 255, 0.7);
             text-decoration: none;
-            font-weight: 500;
-            font-size: 16px;
-            position: relative;
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
             transition: 0.3s;
-            display: flex;
-            align-items: center;
-            gap: 8px;
+            position: relative;
+            cursor: pointer;
+            font-family: 'Consolas', sans-serif;
         }
 
-        nav a:hover, nav a.active {
+        .nav-item:hover,
+        .nav-item.active {
             color: var(--accent-color);
+            text-shadow: 0 0 8px var(--accent-color);
         }
 
-        /* --- 主内容区 (新的地球和波纹容器) --- */
+        /* --- 3. 鼠标代码拖尾特效样式 --- */
+        .code-particle {
+            position: fixed;
+            pointer-events: none;
+            z-index: 9999;
+            font-family: 'Fira Code', monospace;
+            font-weight: bold;
+            font-size: 14px;
+            user-select: none;
+            white-space: nowrap;
+            animation: floatUp 1s ease-out forwards;
+        }
+
+        @keyframes floatUp {
+            0% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+
+            100% {
+                opacity: 0;
+                transform: translateY(-50px) scale(0.5);
+            }
+        }
+
+        /* --- 4. 主内容区 --- */
         main {
             position: relative;
             z-index: 10;
@@ -127,43 +142,39 @@
             justify-content: center;
             align-items: center;
             text-align: center;
-            pointer-events: none; /* 让鼠标穿透文字区域，不影响交互 */
-        }
-        
-        main * {
-            pointer-events: auto; /* 恢复内部元素的点击 */
+            pointer-events: none;
         }
 
-        /* 3D地球容器 */
+        main * {
+            pointer-events: auto;
+        }
+
         #earth-container {
             width: 300px;
             height: 300px;
             margin-bottom: 25px;
             position: relative;
-            pointer-events: auto; /* 可交互 */
+            pointer-events: auto;
         }
-        
-        /* 3D Earth canvas - renderer 会生成 canvas 并放置到 container 中 */
+
         #earth-container canvas {
             position: absolute;
             top: 0;
             left: 0;
-            z-index: 2; /* 确保在波纹上面 */
-            border-radius: 50%; /* 圆形裁切 */
-            display: block; /* 消除 canvas 下方的小间隙 */
+            z-index: 2;
+            border-radius: 50%;
+            display: block;
         }
-        
-        /* 音乐波纹 canvas (代码元素) */
+
         #canvas-audio-ripple {
             position: absolute;
             top: 0;
             left: 0;
-            z-index: 1; /* 在地球下方 */
+            z-index: 1;
             opacity: 0.8;
             pointer-events: none;
         }
 
-        /* 主标题调整 */
         h1 {
             font-size: 4rem;
             margin-bottom: 15px;
@@ -171,10 +182,11 @@
             letter-spacing: -1px;
             background: linear-gradient(120deg, #fff, #c9d1d9, #58a6ff);
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
-            text-shadow: 0 5px 15px rgba(0,0,0,0.8);
+            text-shadow: 0 5px 15px rgba(0, 0, 0, 0.8);
         }
-        
+
         .role-badge {
             display: inline-block;
             background: rgba(88, 166, 255, 0.1);
@@ -194,10 +206,10 @@
             height: 40px;
             font-weight: 300;
             font-family: 'Fira Code', monospace;
-            text-shadow: 0 5px 15px rgba(0,0,0,0.8);
-            position: relative; /* For typewriter */
+            text-shadow: 0 5px 15px rgba(0, 0, 0, 0.8);
+            position: relative;
         }
-        /* Typewriter blink caret simulation */
+
         #typewriter::after {
             content: '|';
             display: inline-block;
@@ -205,11 +217,13 @@
             color: var(--accent-color);
             margin-left: 4px;
         }
+
         @keyframes blink {
-            50% { opacity: 0; }
+            50% {
+                opacity: 0;
+            }
         }
 
-        
         /* 悬浮新闻提示 */
         #news-tooltip {
             position: absolute;
@@ -229,18 +243,18 @@
             pointer-events: none;
             min-width: 200px;
             text-align: left;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
             z-index: 3;
         }
-        
+
         #earth-container:hover #news-tooltip {
             opacity: 1;
             visibility: visible;
             bottom: calc(100% + 15px);
         }
-        
-        /* --- 音乐播放器相关样式 (保持不变，确保ID和类名一致) --- */
-        #audio-player { /* 容器 ID, 示例 */
+
+        /* --- 5. 音乐播放器 --- */
+        #audio-player {
             position: fixed;
             bottom: 20px;
             left: 20px;
@@ -256,7 +270,12 @@
             gap: 10px;
             box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
         }
-        .controls { display: flex; gap: 15px; }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+        }
+
         .controls button {
             background: none;
             border: none;
@@ -265,60 +284,230 @@
             cursor: pointer;
             transition: color 0.3s;
         }
-        .controls button:hover { color: var(--accent-color); }
-        .controls button i { pointer-events: none; } /* FontAwesome icons */
-        #disk { /* 模拟唱片 */
+
+        .controls button:hover {
+            color: var(--accent-color);
+        }
+
+        .controls button i {
+            pointer-events: none;
+        }
+
+        #disk {
             width: 60px;
             height: 60px;
             border-radius: 50%;
             background: linear-gradient(to bottom, #ddd, #aaa);
+            background-size: cover;
+            background-position: center;
             position: relative;
             animation: rotate 5s linear infinite;
             animation-play-state: paused;
-            transition: opacity 0.3s;
+            transition: opacity 0.3s, background-image 0.3s;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
         }
-        #disk.playing { animation-play-state: running; }
-        #disk::before { /* 中心点 */
+
+        #disk.playing {
+            animation-play-state: running;
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        #disk::before {
             content: '';
             position: absolute;
-            top: 50%; left: 50%;
-            width: 15px; height: 15px;
+            top: 50%;
+            left: 50%;
+            width: 15px;
+            height: 15px;
             background-color: #555;
             border-radius: 50%;
             transform: translate(-50%, -50%);
         }
-        #music-info { text-align: center; }
-        .track-title { font-weight: bold; font-size: 0.9em; }
-        .track-artist { font-size: 0.75em; color: #8b949e; }
 
-        /* 歌词面板 */
-        #playlist-panel {
+        #music-info {
+            text-align: center;
+        }
+
+        .track-title {
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .track-format {
+            font-size: 0.7em;
+            color: #8b949e;
+            margin-top: 2px;
+        }
+
+        .track-artist {
+            font-size: 0.75em;
+            color: #8b949e;
+        }
+
+        /* 设置面板 */
+        #settings-panel {
             position: fixed;
-            top: 0; right: -400px; /* 隐藏在右侧 */
-            width: 350px;
-            height: 100vh;
+            bottom: 100px;
+            left: 20px;
+            width: 300px;
             background: var(--nav-bg);
             backdrop-filter: blur(10px);
-            border-left: 1px solid rgba(255, 255, 255, 0.05);
-            z-index: 102;
-            display: flex;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            z-index: 103;
+            display: none;
             flex-direction: column;
-            transition: right 0.5s ease-in-out;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
         }
-        #playlist-panel.show { right: 0; }
-        .panel-header {
-            padding: 20px;
-            font-size: 1.2em;
+
+        #settings-panel.show {
+            display: flex;
+        }
+
+        .settings-header {
+            padding: 15px;
+            font-size: 1em;
             font-weight: 600;
             border-bottom: 1px solid rgba(255, 255, 255, 0.05);
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
+
+        .settings-header button {
+            background: none;
+            border: none;
+            color: var(--text-color);
+            cursor: pointer;
+            font-size: 1em;
+        }
+
+        .settings-content {
+            padding: 15px;
+        }
+
+        .settings-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 0.9em;
+        }
+
+        .settings-status.configured {
+            background: rgba(63, 185, 80, 0.1);
+            color: var(--success-green);
+        }
+
+        .settings-status i {
+            font-size: 1.2em;
+        }
+
+        .settings-form .form-group {
+            margin-bottom: 12px;
+        }
+
+        .settings-form label {
+            display: block;
+            font-size: 0.85em;
+            color: #8b949e;
+            margin-bottom: 5px;
+        }
+
+        .settings-form input {
+            width: 100%;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            color: var(--text-color);
+            font-size: 0.9em;
+        }
+
+        .settings-form input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        .settings-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .settings-actions button {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.85em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        .btn-primary {
+            background: var(--accent-color);
+            color: #000;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-color);
+        }
+
+        .btn-primary:hover {
+            background: #79c0ff;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* 歌词面板 */
+        #playlist-panel {
+            position: fixed;
+            top: 0;
+            right: -400px;
+            width: 350px;
+            height: 100vh;
+            background: var(--nav-bg);
+            backdrop-filter: blur(10px);
+            border-left: 1px solid rgba(88, 166, 255, 0.1);
+            z-index: 102;
+            display: flex;
+            flex-direction: column;
+            transition: right 0.5s ease-in-out;
+        }
+
+        #playlist-panel.show {
+            right: 0;
+        }
+
+        .panel-header {
+            padding: 20px;
+            font-size: 1.2em;
+            font-weight: 600;
+            border-bottom: 1px solid rgba(88, 166, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
         .playlist-tabs {
             display: flex;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(88, 166, 255, 0.1);
         }
+
         .playlist-tab {
             flex-grow: 1;
             text-align: center;
@@ -327,25 +516,32 @@
             border-bottom: 2px solid transparent;
             transition: border-color 0.3s;
         }
+
         .playlist-tab.active {
             border-bottom-color: var(--accent-color);
             color: var(--accent-color);
         }
+
         .search-box {
             padding: 15px;
             display: flex;
             gap: 10px;
-            display: none; /* 默认隐藏，在 online 模式下显示 */
+            display: none;
         }
-        .search-box.show { display: flex; }
+
+        .search-box.show {
+            display: flex;
+        }
+
         #search-input {
             flex-grow: 1;
             padding: 8px 12px;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 5px;
             color: var(--text-color);
         }
+
         #search-btn {
             background: var(--accent-color);
             border: none;
@@ -353,24 +549,39 @@
             border-radius: 5px;
             cursor: pointer;
         }
-        #search-btn i { margin-right: 5px; }
+
         .playlist-items {
             flex-grow: 1;
             overflow-y: auto;
             padding: 10px;
-            max-height: calc(100vh - 150px); /* 粗略计算，可能需要调整 */
+            max-height: calc(100vh - 150px);
         }
+        
+        /* 自定义滚动条样式，去掉白边 */
+        .playlist-items::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .playlist-items::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .playlist-items::-webkit-scrollbar-thumb {
+            background: rgba(88, 166, 255, 0.3);
+            border-radius: 4px;
+        }
+        
+        .playlist-items::-webkit-scrollbar-thumb:hover {
+            background: rgba(88, 166, 255, 0.5);
+        }
+
         .playlist-empty {
             text-align: center;
             padding: 30px;
             color: #8b949e;
             font-size: 0.9em;
         }
-        .playlist-empty i, .playlist-empty span.loading-spinner { /* FontAwesome & spinner */
-             margin-right: 5px;
-             font-size: 1.2em;
-             color: var(--accent-color);
-        }
+
         .playlist-item {
             display: flex;
             align-items: center;
@@ -379,117 +590,336 @@
             cursor: pointer;
             transition: background 0.3s;
         }
-        .playlist-item:hover { background: rgba(255,255,255,0.08); }
-        .playlist-item.active { background: var(--accent-color); color: #000; }
-        .item-index { width: 30px; text-align: right; margin-right: 10px; opacity: 0.7; }
-        .item-info { flex-grow: 1; }
-        .item-title { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .item-artist { font-size: 0.8em; color: #8b949e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .item-format { font-size: 0.7em; padding: 2px 6px; border-radius: 4px; margin-left: 10px; }
-        .item-format.netease { background: var(--netease-red); color: #fff; }
-        .item-format.local { background: rgba(255,255,255,0.2); }
-        .playlist-footer { padding: 15px; border-top: 1px solid rgba(255, 255, 255, 0.05); font-size: 0.9em; }
 
-        /* 歌词容器 */
-        #lyrics-container {
-            text-align: center;
-            font-family: 'Fira Code', monospace;
-            font-size: 0.9em;
-            line-height: 1.6;
-            max-height: 150px; /* 限制歌词显示高度 */
+        .playlist-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .playlist-item.active {
+            background: var(--accent-color);
+            color: #000;
+        }
+
+        .item-index {
+            width: 30px;
+            text-align: right;
+            margin-right: 10px;
+            opacity: 0.7;
+        }
+
+        .item-info {
+            flex-grow: 1;
+        }
+
+        .item-title {
+            font-weight: 500;
+            white-space: nowrap;
             overflow: hidden;
-            margin-top: 10px;
-            transition: all 0.3s ease;
-            position: relative; /* For animations */
-            opacity: 0.8;
-        }
-        .lyrics-line {
-            opacity: 0.5;
-            transition: all 0.5s ease;
-        }
-        .lyrics-line.active {
-            opacity: 1;
-            font-size: 1.1em;
-            font-weight: bold;
-            color: var(--accent-color);
-        }
-        .lyrics-line.prev { /* Smaller, fainter previous line */
-            transform: translateY(-15px);
-            opacity: 0.3;
-        }
-        .lyrics-line.next { /* Smaller, fainter next line */
-            transform: translateY(15px);
-            opacity: 0.3;
-        }
-        .lyrics-empty {
-            color: #8b949e;
-            opacity: 0.6;
+            text-overflow: ellipsis;
         }
 
-        /* 简陋的 Toast 提示 */
-        #toast {
+        .item-artist {
+            font-size: 0.8em;
+            color: #8b949e;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .item-format {
+            font-size: 0.7em;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 10px;
+            display: inline-block;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .item-format.netease {
+            background: var(--netease-red);
+            color: #fff;
+        }
+
+        .item-format.local {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* 歌词容器 - 页面底部居中，无背景框 */
+        #lyrics-display {
             position: fixed;
-            bottom: -50px; /* 初始隐藏在下方 */
+            bottom: 40px;
             left: 50%;
             transform: translateX(-50%);
-            padding: 12px 20px;
-            background: rgba(0,0,0,0.8);
+            text-align: center;
+            font-family: 'Fira Code', 'Noto Sans SC', monospace;
+            font-size: 1.1em;
+            line-height: 2;
+            z-index: 99;
+            pointer-events: none;
+        }
+
+        .lyrics-line {
+            transition: all 0.3s ease;
+            margin: 8px 0;
+        }
+
+        .lyrics-line.prev {
+            opacity: 0.6;
+            font-size: 0.9em;
+            /* 颜色由 JS 内联样式控制 */
+        }
+
+        .lyrics-line.active {
+            opacity: 1;
+            font-size: 1.3em;
+            font-weight: bold;
+            text-shadow: 0 0 15px var(--accent-color), 0 0 30px rgba(88, 166, 255, 0.3);
+            /* 渐变颜色由 JS 内联样式控制 */
+        }
+
+        .lyrics-line.next {
+            opacity: 0.5;
+            font-size: 0.9em;
+            /* 颜色由 JS 内联样式控制 */
+        }
+
+        .lyrics-empty {
+            color: #8b949e;
+            opacity: 0.4;
+            font-size: 0.9em;
+        }
+
+        /* 运行统计 - 左上角 */
+        #site-stats {
+            position: fixed;
+            top: 80px;
+            left: 20px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.8em;
+            color: rgba(255, 255, 255, 0.6);
+            z-index: 100;
+            line-height: 1.8;
+        }
+
+        #site-stats .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #site-stats .stat-icon {
+            color: var(--accent-color);
+            width: 16px;
+        }
+
+        #site-stats .stat-value {
+            color: var(--accent-color);
+        }
+
+        #toast {
+            position: fixed;
+            bottom: -50px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 24px;
+            background: var(--nav-bg);
+            backdrop-filter: blur(10px);
             color: var(--text-color);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 8px;
+            border: 1px solid rgba(88, 166, 255, 0.3);
+            border-radius: 12px;
             font-size: 0.9rem;
             z-index: 1000;
             transition: all 0.5s ease;
             white-space: nowrap;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+            font-family: 'Fira Code', 'Noto Sans SC', monospace;
         }
+
         #toast.show {
-            bottom: 30px; /* 出现到页面底部 */
+            bottom: 30px;
         }
-        #toast.info { border-color: var(--accent-color); }
-        #toast.success { border-color: var(--success-green); }
-        #toast.error { border-color: var(--netease-red); }
 
-
-        /* 响应式调整 */
         @media (max-width: 768px) {
+            .nav-links {
+                padding: 8px 15px;
+                gap: 20px;
+            }
+
+            .nav-item {
+                font-size: 0.9rem;
+                letter-spacing: 1px;
+            }
+
             #earth-container {
                 width: 250px;
                 height: 250px;
             }
-            nav ul { gap: 20px; }
-            nav a { font-size: 14px; }
-            h1 { font-size: 3rem; }
-        }
-        
-        @media (max-width: 480px) {
-            nav { padding: 8px 20px; }
-            nav ul { gap: 15px; flex-wrap: wrap; justify-content: center;}
-            nav li { margin: 0 5px;}
+
+            h1 {
+                font-size: 3rem;
+            }
         }
 
+        /* 关于我页面 - 半透明背景显示星空 */
+        #about-page {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 150;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+        
+        /* VIP 标签样式 */
+        .vip-tag {
+            background: linear-gradient(135deg, #ffd700, #ff8c00);
+            color: #000;
+            font-size: 0.6em;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin-left: 8px;
+            font-weight: bold;
+        }
+
+        #about-page.show {
+            display: flex;
+            opacity: 1;
+        }
+
+        #about-page .about-text {
+            font-family: 'Fira Code', 'Noto Sans SC', monospace;
+            font-size: 1.5em;
+            color: var(--text-color);
+            text-align: center;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        #about-page .about-text span {
+            display: inline-block;
+            opacity: 0;
+            animation: fadeInChar 0.5s ease forwards;
+        }
+
+        @keyframes fadeInChar {
+            0% {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        #about-page .back-btn {
+            position: absolute;
+            top: 30px;
+            left: 30px;
+            background: none;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: var(--text-color);
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Fira Code', monospace;
+            transition: all 0.3s;
+        }
+
+        #about-page .back-btn:hover,
+        #tools-page .back-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        /* 工具导航页面 - 复用关于我页面样式 */
+        #tools-page {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 5, 5, 0.85);
+            z-index: 150;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        #tools-page.show {
+            display: flex;
+            opacity: 1;
+        }
+
+        #tools-page .about-text {
+            font-family: 'Fira Code', 'Noto Sans SC', monospace;
+            font-size: 1.5em;
+            color: var(--text-color);
+            text-align: center;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        #tools-page .about-text span {
+            display: inline-block;
+            opacity: 0;
+            animation: fadeInChar 0.5s ease forwards;
+        }
+
+        #tools-page .back-btn {
+            position: absolute;
+            top: 30px;
+            left: 30px;
+            background: none;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: var(--text-color);
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Fira Code', monospace;
+            transition: all 0.3s;
+        }
     </style>
 </head>
+
 <body>
 
     <!-- 1. 背景层 -->
     <div id="canvas-galaxy"></div>
-    <div id="code-bg">/*
-    A Symphony of Code
-    Each line a star, each function a nebula.
-    Building worlds in the digital expanse.
-    */</div>
+    <!-- 代码打字背景容器 -->
+    <div id="code-bg"></div>
 
-    <!-- 2. UI 层 -->
-    <header>
-        <nav>
-            <ul>
-                <li><a href="#" class="active">主页</a></li>
-                <li><a href="/app/">项目</a></li>
-                <li><a href="#">关于我</a></li>
-                <li><a href="#">联系</a></li>
-            </ul>
-        </nav>
-    </header>
+    <!-- 关于我页面 -->
+    <div id="about-page">
+        <button class="back-btn" onclick="hideOverlayPage('about')"><i class="fas fa-arrow-left"></i> 返回</button>
+        <div class="about-text" id="about-text"></div>
+    </div>
+
+    <!-- 工具导航页面 -->
+    <div id="tools-page">
+        <button class="back-btn" onclick="hideOverlayPage('tools')"><i class="fas fa-arrow-left"></i> 返回</button>
+        <div class="about-text" id="tools-text"></div>
+    </div>
+
+    <!-- 2. UI 层 - 替换为新版导航栏 -->
+    <nav>
+        <div class="nav-links">
+            <a href="#" class="nav-item active" data-page="home">首页</a>
+            <a href="/app/" class="nav-item">托管商城</a>
+            <a href="#" class="nav-item" data-page="tools">工具导航</a>
+            <a href="#" class="nav-item" data-page="about">关于我</a>
+        </div>
+    </nav>
 
     <!-- 3. 主内容 (地球在中间) -->
     <main>
@@ -500,7 +930,6 @@
                 🚀 3D 渲染器已上线<br>
                 💬 交互动画响应中...
             </div>
-            <!-- THREE.js 渲染的地球 Canvas 会在此容器内生成 -->
         </div>
 
         <h1>Hello, World! I'm Zard</h1>
@@ -508,13 +937,10 @@
         <div class="quote-container">
             <span id="typewriter">// Coding The Future...</span> <!-- 标语轮播 -->
         </div>
-
-        <!-- 占位符 for 其他 UI/Canvas -->
-        <canvas id="canvas-particles"></canvas> <!-- 未使用，但保留 -->
     </main>
 
-    <!-- 4. 音乐播放器 (示例 UI，请根据需要调整 ID) -->
-    <audio id="audio-source"></audio>
+    <!-- 4. 音乐播放器 -->
+    <audio id="audio-source" crossorigin="anonymous"></audio>
     <div id="audio-player">
         <div id="disk"></div>
         <div id="music-info">
@@ -526,63 +952,178 @@
             <button id="play-btn"><i class="fas fa-play"></i></button>
             <button id="next-btn"><i class="fas fa-step-forward"></i></button>
             <button id="playlist-btn"><i class="fas fa-list"></i></button>
-        </div>
-        <div id="lyrics-container">
-             <div class="lyrics-empty">等待音乐播放...</div>
-        </div>
-        <div class="hot-tags-container" id="hot-tags"> <!-- 示例：搜索标签 -->
-             <span class="hot-tag" data-keyword="Pop">Pop</span>
-             <span class="hot-tag" data-keyword="Rock">Rock</span>
-             <span class="hot-tag" data-keyword="Electronic">Electronic</span>
+            <button id="settings-btn" title="网易云账号设置"><i class="fas fa-cog"></i></button>
         </div>
     </div>
-    
+
+    <!-- 网易云账号设置面板 -->
+    <div id="settings-panel">
+        <div class="settings-header">
+            <span><i class="fas fa-cloud" style="color: var(--netease-red);"></i> 网易云账号配置</span>
+            <button id="close-settings-btn">✕</button>
+        </div>
+        <div class="settings-content">
+            <div class="settings-status" id="account-status">
+                <i class="fas fa-user-circle"></i>
+                <span>未配置账号</span>
+            </div>
+            <div id="config-hint" style="padding: 10px; margin-bottom: 15px; background: rgba(88, 166, 255, 0.1); border: 1px solid rgba(88, 166, 255, 0.2); border-radius: 5px; font-size: 0.85em; color: #8b949e; display: none;">
+                <i class="fas fa-info-circle" style="color: var(--accent-color); margin-right: 5px;"></i>
+                <span id="config-hint-text">当前使用默认配置，所有访问者共享。您可以保存自定义配置以覆盖默认设置。</span>
+            </div>
+            <div class="settings-form">
+                <div class="form-group">
+                    <label for="netease-userid">用户 ID</label>
+                    <input type="text" id="netease-userid" placeholder="输入网易云用户ID">
+                </div>
+                <div class="form-group">
+                    <label for="netease-cookie">Cookie (可选，用于VIP内容)</label>
+                    <input type="password" id="netease-cookie" placeholder="输入网易云Cookie">
+                </div>
+                <div class="settings-actions">
+                    <button id="save-account-btn" class="btn-primary"><i class="fas fa-save"></i> 保存</button>
+                    <button id="clear-account-btn" class="btn-secondary"><i class="fas fa-trash"></i> 清除</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 歌词显示 - 页面底部居中 -->
+    <div id="lyrics-display">
+        <div class="lyrics-empty">等待音乐播放...</div>
+    </div>
+
+    <!-- 运行统计 - 左上角 -->
+    <div id="site-stats">
+        <div class="stat-item">
+            <i class="fas fa-clock stat-icon"></i>
+            <span>运行时间: <span id="run-time" class="stat-value">0天0时0分0秒</span></span>
+        </div>
+        <div class="stat-item">
+            <i class="fas fa-eye stat-icon"></i>
+            <span>访问次数: <span id="visit-count" class="stat-value">0</span></span>
+        </div>
+    </div>
+
     <!-- 播放列表面板 -->
     <div id="playlist-panel">
         <div class="panel-header">
             播放列表 (<span id="playlist-count">0</span>)
-            <button id="close-panel-btn" style="background: none; border: none; color: var(--text-color); cursor: pointer;">✕</button>
+            <button id="close-panel-btn"
+                style="background: none; border: none; color: var(--text-color); cursor: pointer;">✕</button>
         </div>
         <div class="playlist-tabs">
-             <div class="playlist-tab active" data-tab="local">本地音乐</div>
-             <div class="playlist-tab" data-tab="online">在线音乐</div>
+            <div class="playlist-tab active" data-tab="local">本地音乐</div>
+            <div class="playlist-tab" data-tab="online">在线音乐</div>
         </div>
         <div class="search-box" id="search-box">
-             <input type="text" id="search-input" placeholder="搜索歌曲或歌手...">
-             <button id="search-btn"><i class="fas fa-search"></i>搜索</button>
+            <input type="text" id="search-input" placeholder="搜索歌曲或歌手...">
+            <button id="search-btn"><i class="fas fa-search"></i>搜索</button>
         </div>
         <div class="playlist-items" id="playlist-items">
             <div class="playlist-empty"><i class="fas fa-folder-open"></i> 暂无本地音乐</div>
         </div>
     </div>
-    
+
     <!-- Toast 提示 -->
     <div id="toast"></div>
-    
-    <!-- Font Awesome CDN for icons (example) -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 
-    <!-- !!! JavaScript Bundle Start !!! -->
+    <!-- JavaScript Bundle -->
     <script>
-        // ----------------------- 原有保留的 JavaScript 模块 Start -----------------------
-        
-        /**
-         * 模块4：中间标语轮播
-         */
+        // ==========================================
+        // 1. 新增：Java 代码背景打字动画 (集成特效)
+        // ==========================================
+        const javaCodeSnippet = `
+public class DeveloperLife {
+    public static void main(String[] args) {
+        World world = new World("Earth");
+        while (alive) {
+            try {
+                code();
+                coffee.drink();
+                bugs.fix();
+                sleep(4 * 60 * 60); // Optimistic
+            } catch (Exception e) {
+                stackTrace.printStackTrace();
+                // Keep moving forward
+                continue;
+            }
+        }
+    }
+    // "Hello World" is just the beginning.
+    // Exploring the universe of logic.
+}
+`;
+        let codeIndex = 0;
+        const codeBg = document.getElementById('code-bg');
+
+        function typeCodeBg() {
+            if (codeIndex < javaCodeSnippet.length) {
+                // 使用 textContent 或 innerHTML 追加
+                codeBg.innerHTML += javaCodeSnippet.charAt(codeIndex);
+                codeIndex++;
+                setTimeout(typeCodeBg, 50); // 打字速度
+            } else {
+                // 循环播放: 停顿后清空重来
+                setTimeout(() => {
+                    codeBg.innerHTML = '';
+                    codeIndex = 0;
+                    typeCodeBg();
+                }, 8000);
+            }
+        }
+        // 启动背景打字
+        document.addEventListener('DOMContentLoaded', typeCodeBg);
+
+        // ==========================================
+        // 2. 新增：鼠标拖尾特效 (随机代码字符)
+        // ==========================================
+        const codeChars = ['{', '}', '</>', ';', '0', '1', 'var', 'let', 'fn', '#', '&&'];
+        const colors = ['#58a6ff', '#bc13fe', '#ffffff', '#3fb950'];
+
+        document.addEventListener('mousemove', (e) => {
+            // 限制生成频率，简单的节流
+            if (Math.random() > 0.3) return;
+
+            const particle = document.createElement('div');
+            particle.className = 'code-particle';
+            particle.innerText = codeChars[Math.floor(Math.random() * codeChars.length)];
+
+            // 随机颜色
+            particle.style.color = colors[Math.floor(Math.random() * colors.length)];
+
+            // 定位
+            particle.style.left = (e.clientX + 10) + 'px';
+            particle.style.top = (e.clientY + 10) + 'px';
+
+            // 随机大小微调
+            const size = 12 + Math.random() * 8;
+            particle.style.fontSize = size + 'px';
+
+            document.body.appendChild(particle);
+
+            // 动画结束后移除
+            setTimeout(() => {
+                particle.remove();
+            }, 1000);
+        });
+
+        // ==========================================
+        // 3. 原有逻辑：标语轮播 (Typewriter)
+        // ==========================================
         const quotes = [
             "Talk is cheap, Show me the code.",
             "0 和 1 构成了我的世界。",
             "保持好奇，保持热爱。",
             "Bug 是通往真理的阶梯。"
         ];
-        // 【注意】：quoteElement 的 ID 统一修改为 'typewriter'，以便与 HTML 匹配
-        const quoteElement = document.getElementById('typewriter'); 
+        const quoteElement = document.getElementById('typewriter');
         let quoteIndex = 0;
         let charIndex = 0;
         let isDeleting = false;
-        
+
         function typeQuote() {
-            if (!quoteElement) return; // 安全检查，防止元素不存在时报错
+            if (!quoteElement) return;
             const currentQuote = quotes[quoteIndex];
             if (isDeleting) {
                 quoteElement.textContent = currentQuote.substring(0, charIndex - 1);
@@ -591,158 +1132,115 @@
                 quoteElement.textContent = currentQuote.substring(0, charIndex + 1);
                 charIndex++;
             }
-            let speed = isDeleting ? 50 : 100; // 删除快，输入慢
+            let speed = isDeleting ? 50 : 100;
             if (!isDeleting && charIndex === currentQuote.length) {
-                isDeleting = true; speed = 2000; // 输入完后暂停2秒
+                isDeleting = true; speed = 2000;
             } else if (isDeleting && charIndex === 0) {
-                isDeleting = false; quoteIndex = (quoteIndex + 1) % quotes.length; speed = 500; // 删除完切换到下一句，短暂延迟
+                isDeleting = false; quoteIndex = (quoteIndex + 1) % quotes.length; speed = 500;
             }
             setTimeout(typeQuote, speed);
         }
-        // 【调用方式】typeQuote() 会在 DOMContentLoaded 中被调用
-        
-        // ----------------------- 原有保留的 JavaScript 模块 End -----------------------
 
-        /**
-         * 模块 B：科技感背景星空 (Galaxy) - [新增/修复]
-         * - 初始化全屏的 #canvas-galaxy 背景，避免纯黑屏
-         */
+        // ==========================================
+        // 4. 原有逻辑：背景星空 (Three.js Galaxy)
+        // ==========================================
         let bgScene, bgCamera, bgRenderer, stars;
         const bgContainer = document.getElementById('canvas-galaxy');
 
         function initGalaxy() {
-            // 【安全检查】：确保 DOM 元素存在
-            if (!bgContainer) {
-                console.error("初始化 Galaxy 失败: #canvas-galaxy 元素未找到。");
-                return; 
-            }
-
+            if (!bgContainer) return;
             const width = window.innerWidth;
             const height = window.innerHeight;
-            
+
             bgScene = new THREE.Scene();
             bgCamera = new THREE.PerspectiveCamera(75, width / height, 1, 3000);
             bgCamera.position.z = 1000;
 
-            // antialias: true 避免锯齿
-            bgRenderer = new THREE.WebGLRenderer({ antialias: true });
+            bgRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             bgRenderer.setSize(width, height);
-            bgContainer.appendChild(bgRenderer.domElement); // 【之前这里是 null.appendChild 出错的点】
-            
-            // 创建科技感粒子 (5000 颗)
+            bgContainer.appendChild(bgRenderer.domElement);
+
             const starGeometry = new THREE.BufferGeometry();
             const starVertices = [];
             for (let i = 0; i < 5000; i++) {
-                // 随机分布在 [-1000, 1000] 的空间内
                 const x = THREE.MathUtils.randFloatSpread(2000);
                 const y = THREE.MathUtils.randFloatSpread(2000);
                 const z = THREE.MathUtils.randFloatSpread(2000);
                 starVertices.push(x, y, z);
             }
             starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
-            
+
             const starMaterial = new THREE.PointsMaterial({
-                color: 0x99a3b2, // 淡蓝色，带点科技感
-                size: 1.5,      // 粒子大小
+                color: 0x99a3b2,
+                size: 1.5,
                 transparent: true,
                 opacity: 0.8
             });
             stars = new THREE.Points(starGeometry, starMaterial);
             bgScene.add(stars);
         }
-        
-        /**
-         * 模块6：3D 地球 (Three.js) - [核心修复]
-         */
+
+        // ==========================================
+        // 5. 原有逻辑：3D 地球 (Three.js)
+        // ==========================================
         const earthContainer = document.getElementById('earth-container');
         let earthScene, earthCamera, earthRenderer, earthMesh;
-        const EARTH_SIZE = 150; // 地球半径
-        
+        const EARTH_SIZE = 150;
+
         function initEarth() {
-            if (!earthContainer) {
-                console.error("初始化 Earth 失败: #earth-container 元素未找到。");
-                return;
-            }
+            if (!earthContainer) return;
 
             const width = earthContainer.clientWidth;
             const height = earthContainer.clientHeight;
 
-            // 1. Scene
             earthScene = new THREE.Scene();
-            
-            // 2. Camera
             earthCamera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-            earthCamera.position.z = 300; // 推远一点，能看到整个球
+            earthCamera.position.z = 300;
 
-            // 3. Renderer
-            earthRenderer = new THREE.WebGLRenderer({ 
-                antialias: true,
-                alpha: true // 允许透明背景
-            });
-            
+            earthRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             earthRenderer.setSize(width, height);
-            // 【关键修复】让 renderer 创建的 canvas 自动添加到 earthContainer
             earthContainer.appendChild(earthRenderer.domElement);
 
-            // 4. Geometry & Material
             const geometry = new THREE.SphereGeometry(EARTH_SIZE, 32, 32);
             const material = new THREE.MeshStandardMaterial({
-                color: 0x2e8b57,     // 海洋绿，较深邃
-                emissive: 0x0a102d, // 微弱内发光，增加深邃感
-                metalness: 0.8,     // 高金属感
-                roughness: 0.1,     // 较光滑
-                wireframe: true     // 加上线框，增强科技感
+                color: 0x2e8b57,
+                emissive: 0x0a102d,
+                metalness: 0.8,
+                roughness: 0.1,
+                wireframe: true
             });
-            
+
             earthMesh = new THREE.Mesh(geometry, material);
             earthScene.add(earthMesh);
-            
-            // 5. Lighting
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.3); // 弱环境光
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
             earthScene.add(ambientLight);
 
-            const directionalLight = new THREE.DirectionalLight(0x58a6ff, 1.2); // 主光，使用 accent-color 蓝色
-            directionalLight.position.set(500, 500, 500); // 从右上角投射
+            const directionalLight = new THREE.DirectionalLight(0x58a6ff, 1.2);
+            directionalLight.position.set(500, 500, 500);
             earthScene.add(directionalLight);
         }
 
-        // 动画主循环，统一渲染地球和背景
-        function animateEarth() {
-            // 请求下一帧动画
-            requestAnimationFrame(animateEarth);
+        // 统一动画循环
+        function animateAll() {
+            requestAnimationFrame(animateAll);
 
-            // --- 更新逻辑 ---
-            
             // 地球自转
-            if (earthMesh) {
-                earthMesh.rotation.y += 0.0015;
-            }
-            
-            // 背景星空轻微转动
+            if (earthMesh) earthMesh.rotation.y += 0.0015;
+
+            // 星空转动
             if (stars) {
-                 stars.rotation.y += 0.0001; 
-                 stars.rotation.x += 0.00005; 
+                stars.rotation.y += 0.0001;
+                stars.rotation.x += 0.00005;
             }
 
-            // --- 渲染 ---
-            // 渲染背景星空
-            if (bgRenderer && bgScene && bgCamera) {
-                bgRenderer.render(bgScene, bgCamera);
-            }
-            
-            // 渲染地球
-            if (earthRenderer && earthScene && earthCamera) {
-                earthRenderer.render(earthScene, earthCamera);
-            }
+            // 渲染
+            if (bgRenderer && bgScene && bgCamera) bgRenderer.render(bgScene, bgCamera);
+            if (earthRenderer && earthScene && earthCamera) earthRenderer.render(earthScene, earthCamera);
         }
-        
-        /**
-         * 统一处理窗口 resize 事件
-         */
+
+        // 窗口 Resize
         function onResize() {
-            const earthContainer = document.getElementById('earth-container'); // 确保在函数内部获取
-            const rippleCanvas = document.getElementById('canvas-audio-ripple'); // 确保在函数内部获取
-            
             if (earthContainer && earthRenderer && earthCamera) {
                 const width = earthContainer.clientWidth;
                 const height = earthContainer.clientHeight;
@@ -750,7 +1248,6 @@
                 earthCamera.updateProjectionMatrix();
                 earthRenderer.setSize(width, height);
             }
-            
             if (bgRenderer && bgCamera) {
                 const windowWidth = window.innerWidth;
                 const windowHeight = window.innerHeight;
@@ -758,817 +1255,1323 @@
                 bgCamera.updateProjectionMatrix();
                 bgRenderer.setSize(windowWidth, windowHeight);
             }
-            
-            // 触发波纹画布重新初始化，使其尺寸适应
             if (rippleCanvas) initRipple();
         };
 
-        /**
-         * 模块7：音频节拍代码波纹 (Web Audio API)
-         */
+        // ==========================================
+        // 6. 原有逻辑：音频波纹 (Web Audio API)
+        // ==========================================
         const audio = document.getElementById('audio-source');
         const rippleCanvas = document.getElementById('canvas-audio-ripple');
         let rippleCtx, audioContext, analyser, dataArray;
         let rippleWidth, rippleHeight;
-        const RIPPLE_CENTER_OFFSET = 12; 
-        const EARTH_RADIUS_PULSE = 135; // 波纹的基准半径
-        const codeCharacters = ['<dev/>', 'fun()', ';', '#', '{', '}', '101'];
-        
+        const RIPPLE_CENTER_OFFSET = 0;
+        const EARTH_RADIUS_PULSE = 135;
+        const rippleChars = ['<dev/>', 'fun()', ';', '#', '{', '}', '101'];
+
         function initRipple() {
-            // 确保 Canvas 元素存在
-            if (!rippleCanvas) {
-                console.error("初始化 Ripple 失败: #canvas-audio-ripple 元素未找到。");
-                return;
-            }
-            rippleWidth = rippleCanvas.width = rippleCanvas.clientWidth || window.innerWidth; // 优先取容器宽度，备用窗口宽度
-            rippleHeight = rippleCanvas.height = rippleCanvas.clientHeight || window.innerHeight;
+            if (!rippleCanvas) return;
+            rippleWidth = rippleCanvas.width = rippleCanvas.clientWidth || 300;
+            rippleHeight = rippleCanvas.height = rippleCanvas.clientHeight || 300;
             rippleCtx = rippleCanvas.getContext('2d');
-            
-            // 初始化 AudioContext 仅一次，并在播放时恢复
+
             if (window.AudioContext && !audioContext) {
                 try {
                     audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                    if (!audio || !audioContext) { throw new Error("Audio Element or AudioContext is missing."); }
                     const source = audioContext.createMediaElementSource(audio);
                     analyser = audioContext.createAnalyser();
                     source.connect(analyser);
                     analyser.connect(audioContext.destination);
-                    
-                    analyser.fftSize = 256; 
-                    const bufferLength = analyser.frequencyBinCount;
-                    dataArray = new Uint8Array(bufferLength);
-                } catch (e) {
-                    console.warn("Web Audio API 初始化失败:", e);
-                    analyser = null;
-                }
-            } else if (analyser) {
-                 analyser.fftSize = 256; 
-                 const bufferLength = analyser.frequencyBinCount;
-                 dataArray = new Uint8Array(bufferLength);
-            }
-            
-            if(rippleCtx) {
-                 rippleCtx.font = "bold 14px 'Fira Code'";
+                    analyser.fftSize = 256;
+                    dataArray = new Uint8Array(analyser.frequencyBinCount);
+                } catch (e) { console.warn("Audio API Init Failed", e); }
             }
         }
-        
-        // 播放时激活 AudioContext
-        document.addEventListener('play', () => { // 监听文档上的 play 事件
-            if (audioContext && audioContext.state === 'suspended') {
-                audioContext.resume();
-            }
-        }, true); // 捕获阶段触发，尽早获得上下文
+
+        document.addEventListener('play', () => {
+            if (audioContext && audioContext.state === 'suspended') audioContext.resume();
+        }, true);
 
         function animateRipple() {
             requestAnimationFrame(animateRipple);
-
-            if (!rippleCtx) return; // 如果 canvas context 未成功初始化，直接返回
+            if (!rippleCtx || !analyser || !dataArray) return;
 
             rippleCtx.clearRect(0, 0, rippleWidth, rippleHeight);
-            
-            if (!analyser || !dataArray) return; // 如果 analyser 未初始化
-
             analyser.getByteFrequencyData(dataArray);
 
             let bassSum = 0;
             for (let i = 0; i < 5; i++) { bassSum += dataArray[i]; }
             const bassVolume = bassSum / 5;
-            
-            const sensitivity = 2.0; // 灵敏度
-            let beatPulse = 0;
 
+            let beatPulse = 0;
             if (!audio.paused) {
-                 beatPulse = Math.min(1.0, (bassVolume / 200) * sensitivity); 
-                 beatPulse = Math.max(0, beatPulse * 1.5 - 0.5); // 提升低音触发门槛
-            } else {
-                 beatPulse *= 0.98; // 逐渐衰减
+                beatPulse = Math.min(1.0, (bassVolume / 200) * 2.0);
+                beatPulse = Math.max(0, beatPulse * 1.5 - 0.5);
             }
 
-            if (beatPulse > 0.01) { // 避免太微弱的动画
-                const center = { x: rippleWidth / 2 + RIPPLE_CENTER_OFFSET, y: rippleHeight / 2 };
-                
-                // 外波纹
-                drawCodeRing(center, EARTH_RADIUS_PULSE + beatPulse * 80, beatPulse * 0.8, 40);
-                
-                // 中波纹
-                drawCodeRing(center, EARTH_RADIUS_PULSE + beatPulse * 50, beatPulse * 0.6, 25);
-                
-                // 内发光
+            if (beatPulse > 0.01) {
+                const center = { x: rippleWidth / 2, y: rippleHeight / 2 };
+                drawCodeRing(center, EARTH_RADIUS_PULSE + beatPulse * 60, beatPulse * 0.8, 40);
+                drawCodeRing(center, EARTH_RADIUS_PULSE + beatPulse * 40, beatPulse * 0.6, 25);
+
                 rippleCtx.beginPath();
                 rippleCtx.arc(center.x, center.y, EARTH_RADIUS_PULSE, 0, Math.PI * 2);
-                rippleCtx.strokeStyle = 'rgba(88, 166, 255, 0.5)'; // accent-color
-                rippleCtx.globalAlpha = Math.min(1.0, beatPulse * 3);
+                rippleCtx.strokeStyle = 'rgba(88, 166, 255, 0.5)';
                 rippleCtx.lineWidth = 1 + beatPulse * 5;
-                rippleCtx.shadowBlur = 10;
-                rippleCtx.shadowColor = 'rgba(88, 166, 255, 1)';
                 rippleCtx.stroke();
             }
-            
-            // 重置阴影/透明度
-            rippleCtx.shadowBlur = 0;
-            rippleCtx.globalAlpha = 1;
         }
 
         function drawCodeRing(center, radius, pulseIntensity, density) {
             rippleCtx.globalAlpha = pulseIntensity * 0.5;
-            rippleCtx.fillStyle = 'var(--accent-color)'; 
-            
-            const totalItems = density;
-            for (let i = 0; i < totalItems; i++) {
-                const angle = (Math.PI * 2 / totalItems) * i + Date.now() * 0.0001;
-                const char = codeCharacters[i % codeCharacters.length];
-                const fontSize = 12 + Math.max(0, pulseIntensity * 10 - 2);
-                
+            rippleCtx.fillStyle = 'var(--accent-color)';
+            rippleCtx.font = "bold 12px 'Fira Code'";
+
+            for (let i = 0; i < density; i++) {
+                const angle = (Math.PI * 2 / density) * i + Date.now() * 0.0001;
+                const char = rippleChars[i % rippleChars.length];
                 const x = center.x + Math.cos(angle) * radius;
-                const y = center.y + Math.sin(angle) * radius * 0.7; // 0.7 为压扁系数
-                
-                rippleCtx.font = `${fontSize}px 'Fira Code'`;
+                const y = center.y + Math.sin(angle) * radius * 0.8;
                 rippleCtx.fillText(char, x, y);
             }
+            rippleCtx.globalAlpha = 1;
         }
-        
-        /**
-         * 模块8：地球交互与新闻预览
-         */
-        const newsTooltip = document.getElementById('news-tooltip');
-        const currentGeoNews = document.getElementById('current-geo-news'); // 【确保HTML中有此ID，若无，此处应创建或修改HTML】
-        // 如果 HTML 中没有 currentGeoNews, 需要在这里模拟创建一个，或让 NEWS_TOOLTIP 来显示
-        // 假设 currentGeoNews 并不强制，可以忽略该行，仅用 newsTooltip
-        // 【代码示例使用 `newsTooltip` 直接显示，原版需要 HTML 里有 currentGeoNews 元素】
 
+        // ==========================================
+        // 7. 原有逻辑：新闻模拟
+        // ==========================================
+        const newsTooltip = document.getElementById('news-tooltip');
         let newsSimulated = [
             " [EU]: Next-Gen AI Project Fully Deployed.",
             " [CN]: Launch Window Confirmed for Quantum Satellite.",
             " [US]: Global Cloud Infrastructure Maintenance Scheduled.",
-            " [IN]: New Algorithm Reaches Theoretical Max Speed.",
-            " [AF]: Data Center Construction Completed, Go-Live Soon.",
-            " [JP]: Robotics System Passed Security Audit."
+            " [IN]: New Algorithm Reaches Theoretical Max Speed."
         ];
         let newsIndex = 0;
-        
-        if (newsTooltip) {
-             // 模拟新闻切换，每 3秒更新一次，如果地球被 hover
-            setInterval(() => {
-                // 仅当地球被 hover 并且不隐蔽时才更新 tooltip 的内容
-                // 如果 tooltip 移开（invisible, opacity 0），则不需要更新
-                if (newsTooltip.style.visibility !== 'visible' && newsTooltip.style.opacity !== '1') return;
 
+        if (newsTooltip) {
+            setInterval(() => {
+                if (newsTooltip.style.visibility !== 'visible' && newsTooltip.style.opacity !== '1') return;
                 const newsItem = newsSimulated[newsIndex];
-                newsTooltip.innerHTML = `[全球资讯]<br>${newsItem}`; // 直接用 innerHTML 更好支持换行
+                newsTooltip.innerHTML = `[全球资讯]<br>${newsItem}`;
                 newsIndex = (newsIndex + 1) % newsSimulated.length;
             }, 3000);
         }
 
-        /**
-         * 模块5：音乐播放器
-         */
-        
-        // ========== 弹窗提示 ==========
+        // ==========================================
+        // 8. 音乐播放器完整功能 (修复版)
+        // ==========================================
         const toastEl = document.getElementById('toast');
+        let toastTimeout = null;
+        
         function showToast(message, type = 'info', duration = 3000) {
             if (!toastEl) return;
+            
+            // 清除之前的定时器
+            if (toastTimeout) {
+                clearTimeout(toastTimeout);
+            }
+            
             toastEl.textContent = message;
-            toastEl.className = 'toast show ' + type; // 添加 'show' 类使其可见
-            setTimeout(() => {
-                if (toastEl) toastEl.classList.remove('show');
+            toastEl.className = 'show';
+            
+            // 设置新的定时器
+            toastTimeout = setTimeout(() => { 
+                if (toastEl) toastEl.className = '';
+                toastTimeout = null;
             }, duration);
         }
-        
-        // ========== 音频格式兼容性检测 ==========
-        function checkAudioSupport() {
-            const audio = document.createElement('audio');
-            const formats = {
-                mp3: 'audio/mpeg', flac: 'audio/flac', wav: 'audio/wav', ogg: 'audio/ogg', aac: 'audio/aac', m4a: 'audio/mp4', webm: 'audio/webm'
-            };
-            const support = {};
-            for (const [ext, mime] of Object.entries(formats)) {
-                const canPlay = audio.canPlayType(mime);
-                support[ext] = canPlay === 'probably' || canPlay === 'maybe';
-            }
-            return support;
-        }
-        const audioSupport = checkAudioSupport();
-        
-        // ========== 网易云音乐 API (使用CDN或自己的后端) ==========
-        // 【重要】: Meting API 的 URL 可能需要调整，例如使用公共 API 或你自己的服务器。
-        // 以下 URL 为示例，可能已失效或有访问限制。
-        const MusicAPI = {
-            baseUrl: 'https://api.injahow.cn/meting/', // !!! 请确认此 URL 的可用性 !!!
-            async search(keyword, limit = 20) {
-                try {
-                    const url = `${this.baseUrl}?type=search&search=${encodeURIComponent(keyword)}&server=netease&limit=${limit}`;
-                    const response = await fetch(url);
-                    if (!response.ok) throw new Error(`API Request Failed: ${response.status}`);
-                    const data = await response.json();
-                    if (!Array.isArray(data)) throw new Error("API returned invalid data format.");
 
-                    return data.map((item) => ({
-                        id: item.id || String(item.url_id || Math.random()),
-                        title: item.name || item.title || '未知歌曲',
-                        artist: item.artist || '未知艺术家',
-                        url: item.url, // 对于在线歌曲，url 可能包含直链
-                        pic: item.pic || item.cover, // 封面图
-                        source: 'netease'
-                    }));
-                } catch (e) {
-                    console.error('搜索失败:', e);
-                    throw e;
-                }
-            },
-            async getHot(playlistId = '3778678') { // 3778678 是一个示例歌单 ID
-                try {
-                    const url = `${this.baseUrl}?type=playlist&id=${playlistId}&server=netease`;
-                    const response = await fetch(url);
-                    if (!response.ok) throw new Error(`API Request Failed: ${response.status}`);
-                    const data = await response.json();
-                     if (!Array.isArray(data)) throw new Error("API returned invalid data format.");
-                    
-                    return data.slice(0, 30).map((item) => ({
-                        id: item.id || String(item.url_id || Math.random()),
-                        title: item.name || item.title || '未知歌曲',
-                        artist: item.artist || '未知艺术家',
-                        url: item.url,
-                        pic: item.pic || item.cover,
-                        source: 'netease'
-                    }));
-                } catch (e) {
-                    console.error('获取热门歌曲失败:', e);
-                    throw e;
-                }
-            },
-            async getLyrics(songId) {
-                try {
-                    const url = `${this.baseUrl}?type=lyric&id=${songId}&server=netease`;
-                    const response = await fetch(url);
-                    if (!response.ok) throw new Error(`API Request Failed: ${response.status}`);
-                    const data = await response.json();
-                    return data.lyric || '';
-                } catch (e) {
-                    console.error('获取歌词失败:', e);
-                    return null;
-                }
-            }
-        };
-        
-        // ========== 播放器状态与存储 ==========
-        const STORAGE_KEY = 'zardPortfolioMusicPlayer'; // 独一无二的 key
-        
+        // 播放器状态
         let playerState = {
-            mode: 'local', // 'local' | 'online'
-            localPlaylist: [], // 本地歌曲列表
-            onlinePlaylist: [], // 在线搜索/热门歌曲列表
-            currentIndex: 0,
-            volume: 0.3,
+            mode: 'local',           // 'local' 或 'online'
+            localPlaylist: [],       // 本地播放列表
+            onlinePlaylist: [],      // 在线播放列表
+            index: 0,
             isPlaying: false,
-            isLoading: false,
-            lyrics: [], // 当前歌曲歌词 [{time: s, text: ' lyric '}]
-            currentLyricIndex: -1 // 当前高亮歌词的索引
+            volume: 0.3,
+            currentLyrics: [],       // 当前歌词
+            lyricsTimer: null        // 歌词更新定时器
         };
-        
+
+        // localStorage 键名
+        const PLAYER_STORAGE_KEY = 'musicPlayerState';
+
+        // 保存状态到 localStorage
         function savePlayerState() {
             try {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify({
-                    mode: playerState.mode, 
-                    currentIndex: playerState.currentIndex, 
+                localStorage.setItem(PLAYER_STORAGE_KEY, JSON.stringify({
+                    mode: playerState.mode,
+                    index: playerState.index,
                     volume: playerState.volume
                 }));
-            } catch (e) { console.warn('无法保存播放器状态:', e); }
+            } catch (e) { console.warn('保存状态失败:', e); }
         }
-        
+
+        // 从 localStorage 恢复状态
         function restorePlayerState() {
             try {
-                const data = localStorage.getItem(STORAGE_KEY);
-                if (!data) return null;
-                const restoredState = JSON.parse(data);
-                // 确保播放模式是有效的
-                if (restoredState.mode !== 'local' && restoredState.mode !== 'online') {
-                    restoredState.mode = 'local'; // 默认回本地
+                const data = localStorage.getItem(PLAYER_STORAGE_KEY);
+                if (data) {
+                    const saved = JSON.parse(data);
+                    playerState.mode = saved.mode || 'local';
+                    playerState.index = saved.index || 0;
+                    playerState.volume = saved.volume !== undefined ? saved.volume : 0.3;
                 }
-                return restoredState;
-            } catch (e) { 
-                console.warn('无法恢复播放器状态:', e);
-                return null; 
-            }
+            } catch (e) { console.warn('恢复状态失败:', e); }
         }
-        
-        // ========== LRC 歌词解析 ==========
-        function parseLRC(lrcText) {
-            if (!lrcText || !lrcText.trim()) return [];
-            const lines = lrcText.split('\n');
-            const lyrics = [];
-            // 匹配 [mm:ss.xx] 或 [mm:ss.xxx] 格式的时间戳
-            const timeRegex = /\[(\d{1,2}):(\d{1,2})(?:\.(\d{1,3}))?\]/g; 
-            for (const line of lines) {
-                // 忽略空行和没有歌词文本的行
-                const text = line.replace(timeRegex, '').trim();
-                if (!text) continue;
 
-                // 查找所有时间戳，并累加到歌词对象中
-                let match;
-                while ((match = timeRegex.exec(line)) !== null) {
-                    const minutes = parseInt(match[1]);
-                    const seconds = parseInt(match[2]);
-                    // milliseconds: padEnd(3, '0') 确保有三位数，如 .1 -> .100
-                    const milliseconds = match[3] ? parseInt(match[3].padEnd(3, '0')) : 0; 
-                    const time = minutes * 60 + seconds + milliseconds / 1000;
-                    lyrics.push({ time, text });
+        // 文件名解析（内联简化版）
+        function parseTrackName(filename) {
+            if (!filename) return { artist: '未知艺术家', title: '未知歌曲', format: '' };
+            const lastDot = filename.lastIndexOf('.');
+            const format = lastDot > 0 ? filename.substring(lastDot + 1).toLowerCase() : '';
+            const name = lastDot > 0 ? filename.substring(0, lastDot) : filename;
+            
+            const separators = [' - ', '- ', ' -', '-'];
+            for (const sep of separators) {
+                const idx = name.indexOf(sep);
+                if (idx > 0 && idx < name.length - sep.length) {
+                    const left = name.substring(0, idx).trim();
+                    const right = name.substring(idx + sep.length).trim();
+                    if (left && right) {
+                        // 简单判断：如果右边包含常见艺术家名，则右边是艺术家
+                        const knownArtists = ['周杰伦', '华晨宇', '林俊杰', '陈奕迅', '邓紫棋'];
+                        if (knownArtists.some(a => right.includes(a))) {
+                            return { artist: right, title: left, format };
+                        }
+                        return { artist: left, title: right, format };
+                    }
                 }
             }
-            // 按时间排序
-            lyrics.sort((a, b) => a.time - b.time);
-            return lyrics;
+            return { artist: '未知艺术家', title: name.trim(), format };
         }
-        
-        // ========== DOM 元素获取 ==========
+
+        // LRC 歌词解析
+        function parseLRC(lrcContent) {
+            if (!lrcContent) return [];
+            const lines = lrcContent.split('\n');
+            const lyrics = [];
+            const timeRegex = /\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]/g;
+            
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed || /^\[[a-z]{2}:/.test(trimmed)) continue;
+                
+                const timestamps = [];
+                let match, lastIdx = 0;
+                while ((match = timeRegex.exec(trimmed)) !== null) {
+                    const mins = parseInt(match[1], 10);
+                    const secs = parseInt(match[2], 10);
+                    const ms = match[3] ? parseInt(match[3].padEnd(3, '0'), 10) : 0;
+                    timestamps.push(mins * 60 + secs + ms / 1000);
+                    lastIdx = match.index + match[0].length;
+                }
+                timeRegex.lastIndex = 0;
+                
+                const text = trimmed.substring(lastIdx).trim();
+                timestamps.forEach(time => text && lyrics.push({ time, text }));
+            }
+            return lyrics.sort((a, b) => a.time - b.time);
+        }
+
+        // 获取当前歌词索引
+        function getCurrentLyricIndex(lyrics, currentTime) {
+            if (!lyrics || !lyrics.length) return -1;
+            let idx = -1;
+            for (let i = 0; i < lyrics.length; i++) {
+                if (lyrics[i].time <= currentTime) idx = i;
+                else break;
+            }
+            return idx;
+        }
+
+        // 获取后端 API 基础 URL
+        function getBackendApiBase() {
+            // 如果当前是 localhost 或 127.0.0.1，使用 localhost:8999
+            const hostname = window.location.hostname;
+            if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::]' || hostname === '::1') {
+                return 'http://localhost:8999';
+            }
+            // 否则使用相同的 hostname，但端口改为 8999
+            return `${window.location.protocol}//${hostname}:8999`;
+        }
+
+        // Music API - 使用后端代理 API
+        const MusicAPI = {
+            // 后端代理 API 基础 URL
+            backendApiBase: getBackendApiBase(),
+            // 主 API (通过后端代理)
+            get metingUrl() {
+                return `${this.backendApiBase}/api/meting`;
+            },
+            // 重试配置
+            maxRetries: 3,
+            retryDelays: [0, 1000, 2000], // 重试延迟（毫秒）
+            
+            // 延迟函数
+            delay(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            },
+            
+            async search(keyword, limit = 30) {
+                // 使用后端代理 API 搜索端点，支持重试
+                if (!keyword || !keyword.trim()) {
+                    return { success: false, error: '搜索关键词不能为空', results: [] };
+                }
+                
+                let lastError = null;
+                
+                // 重试循环
+                for (let attempt = 0; attempt < this.maxRetries; attempt++) {
+                    try {
+                        // 如果不是第一次尝试，显示重试消息并等待
+                        if (attempt > 0) {
+                            showToast(`网络不稳定，正在重试 (${attempt}/${this.maxRetries - 1})...`, 'info');
+                            await this.delay(this.retryDelays[attempt]);
+                        }
+                        
+                        const url = `${this.metingUrl}?type=search&s=${encodeURIComponent(keyword.trim())}&server=netease`;
+                        console.log(`[MUSIC-SEARCH] 尝试 ${attempt + 1}/${this.maxRetries}: ${url}`);
+                        
+                        const res = await fetch(url, {
+                            method: 'GET',
+                            headers: {
+                                'Accept': 'application/json',
+                                'Content-Type': 'application/json'
+                            },
+                            signal: AbortSignal.timeout(15000) // 15秒超时（后端需要尝试多个服务器）
+                        });
+                        
+                        // 读取响应
+                        const text = await res.text();
+                        const textTrimmed = text.trim();
+                        
+                        // 检查是否是 HTML 错误页面
+                        if (textTrimmed.startsWith('<!DOCTYPE') || textTrimmed.startsWith('<html') || textTrimmed.startsWith('<?xml')) {
+                            console.error('[MUSIC-SEARCH] 收到HTML响应');
+                            throw new Error('后端服务配置错误');
+                        }
+                        
+                        // 检查HTTP状态
+                        if (!res.ok) {
+                            console.error(`[MUSIC-SEARCH] HTTP ${res.status}`);
+                            throw new Error(`服务器错误 (${res.status})`);
+                        }
+                        
+                        // 解析JSON
+                        let data;
+                        try {
+                            data = JSON.parse(text);
+                        } catch (parseError) {
+                            console.error('[MUSIC-SEARCH] JSON解析失败');
+                            throw new Error('服务器响应格式错误');
+                        }
+                        
+                        // 检查后端返回的错误
+                        if (data && data.error) {
+                            // 如果是服务不可用的错误，且还有重试机会，继续重试
+                            if (data.code >= 500 && attempt < this.maxRetries - 1) {
+                                throw new Error(data.error);
+                            }
+                            // 否则返回错误
+                            return { success: false, error: data.error, results: [], code: data.code };
+                        }
+                        
+                        // 返回成功结果
+                        const results = Array.isArray(data) ? data.slice(0, limit) : [];
+                        console.log(`[MUSIC-SEARCH] 成功: ${results.length} 首歌曲`);
+                        return { success: true, results, error: null };
+                        
+                    } catch (e) {
+                        lastError = e;
+                        console.error(`[MUSIC-SEARCH] 尝试 ${attempt + 1} 失败:`, e.message);
+                        
+                        // 如果是最后一次尝试，不再重试
+                        if (attempt === this.maxRetries - 1) {
+                            break;
+                        }
+                    }
+                }
+                
+                // 所有重试都失败
+                return { 
+                    success: false, 
+                    error: lastError?.message || '音乐搜索服务暂时不可用，请稍后重试',
+                    results: []
+                };
+            },
+            
+            async getHotSongs() {
+                try {
+                    const url = `${this.metingUrl}?type=playlist&id=3778678&server=netease`;
+                    const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+                    if (!res.ok) throw new Error('API 请求失败');
+                    return await res.json();
+                } catch (e) {
+                    console.error('获取热门歌曲失败:', e);
+                    return [];
+                }
+            },
+            
+            async getLyrics(songId) {
+                // 使用后端 /api/meting?type=lrc 获取歌词
+                try {
+                    const url = `${this.metingUrl}?type=lrc&id=${songId}&server=netease`;
+                    console.log(`[MUSIC-API] 获取歌词: ${songId}`);
+                    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+                    if (!res.ok) return '';
+                    const text = await res.text();
+                    return text || '';
+                } catch (e) {
+                    console.error('获取歌词失败:', e);
+                    return '';
+                }
+            },
+            
+            async getSongUrl(songId) {
+                // 使用后端 /api/meting?type=url 获取播放链接
+                try {
+                    const url = `${this.metingUrl}?type=url&id=${songId}&server=netease`;
+                    console.log(`[MUSIC-API] 获取播放链接: ${songId}`);
+                    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+                    if (!res.ok) return '';
+                    const data = await res.json();
+                    return data?.url || '';
+                } catch (e) {
+                    console.error('获取播放链接失败:', e);
+                    return '';
+                }
+            },
+            
+            async searchLyrics(keyword) {
+                try {
+                    // 先搜索歌曲获取歌词
+                    const results = await this.search(keyword);
+                    if (results.success && results.results.length > 0) {
+                        const songId = results.results[0].id;
+                        if (songId) {
+                            return await this.getLyrics(songId);
+                        }
+                    }
+                } catch (e) { console.error('搜索歌词失败:', e); }
+                return '';
+            }
+        };
+
+        // DOM 元素
         const playBtn = document.getElementById('play-btn');
         const prevBtn = document.getElementById('prev-btn');
         const nextBtn = document.getElementById('next-btn');
-        const playlistBtn = document.getElementById('playlist-btn');
         const disk = document.getElementById('disk');
-        const musicInfo = document.getElementById('music-info');
         const playlistPanel = document.getElementById('playlist-panel');
         const playlistItems = document.getElementById('playlist-items');
-        const playlistCount = document.getElementById('playlist-count');
         const searchBox = document.getElementById('search-box');
-        const searchInput = document.getElementById('search-input');
-        const searchBtn = document.getElementById('search-btn');
-        const hotTagsElement = document.getElementById('hot-tags'); 
-        const playlistTabs = document.querySelectorAll('.playlist-tab');
-        const lyricsContainer = document.getElementById('lyrics-container');
-        const closePanelBtn = document.getElementById('close-panel-btn'); // 关闭面板的按钮
+        const lyricsContainer = document.getElementById('lyrics-display');
+        const tabs = document.querySelectorAll('.playlist-tab');
+        const runTimeEl = document.getElementById('run-time');
+        const visitCountEl = document.getElementById('visit-count');
 
-        // ========== 播放列表操作 & UI 更新 ==========
-        
-        function getCurrentPlaylist() { return playerState.mode === 'local' ? playerState.localPlaylist : playerState.onlinePlaylist; }
-        
-        function renderPlaylist() {
-            const playlist = getCurrentPlaylist();
-            if (!playlistItems) return; // 安全检查
+        // 获取当前播放列表
+        function getCurrentPlaylist() {
+            return playerState.mode === 'local' ? playerState.localPlaylist : playerState.onlinePlaylist;
+        }
 
-            if (playlist.length === 0) {
-                let emptyMessage = '<div class="playlist-empty"><i class="fas fa-search"></i> 搜索歌曲或添加本地音乐</div>';
-                if (playerState.mode === 'local') {
-                    emptyMessage = '<div class="playlist-empty"><i class="fas fa-folder-open"></i> 暂无本地音乐<br><small>请在 "musics" 目录添加音乐文件。</small></div>';
-                } else if (playerState.isLoading) {
-                     emptyMessage = '<div class="playlist-empty"><span class="loading-spinner"></span> 正在加载...</div>';
-                }
-                playlistItems.innerHTML = emptyMessage;
-                playlistCount.textContent = '0';
+        // 更新播放器 UI
+        function updatePlayerUI() {
+            if (playBtn) playBtn.innerHTML = playerState.isPlaying ? '<i class="fas fa-pause"></i>' : '<i class="fas fa-play"></i>';
+            if (disk) disk.classList.toggle('playing', playerState.isPlaying);
+        }
+
+        // 歌词进度计算（内联版本）
+        const LYRICS_BLUE = '#58a6ff';
+        const LYRICS_GRAY = 'rgba(255, 255, 255, 0.5)';
+        
+        function calculateLyricProgress(currentTime, lineStartTime, lineEndTime) {
+            if (lineEndTime <= lineStartTime) {
+                return currentTime >= lineStartTime ? 100 : 0;
+            }
+            if (currentTime < lineStartTime) return 0;
+            if (currentTime >= lineEndTime) return 100;
+            return Math.min(100, Math.max(0, ((currentTime - lineStartTime) / (lineEndTime - lineStartTime)) * 100));
+        }
+        
+        function generateGradientStyle(progress) {
+            const p = Math.min(100, Math.max(0, progress));
+            return `linear-gradient(to right, ${LYRICS_BLUE} ${p}%, ${LYRICS_GRAY} ${p}%)`;
+        }
+        
+        function getLyricEndTime(lyrics, index) {
+            if (index < lyrics.length - 1) return lyrics[index + 1].time;
+            return lyrics[index].time + 3; // 默认3秒
+        }
+
+        // 更新歌词显示 - 只显示三行，带渐变进度
+        function updateLyricsDisplay() {
+            if (!lyricsContainer) return;
+            
+            if (!playerState.currentLyrics || playerState.currentLyrics.length === 0) {
+                lyricsContainer.innerHTML = '<div class="lyrics-empty">♪ 暂无歌词 ♪</div>';
                 return;
             }
             
-            playlistCount.textContent = `${playlist.length}`;
-            playlistItems.innerHTML = playlist.map((track, index) => {
-                const sourceBadge = track.source === 'netease'
-                    ? '<span class="item-format netease">在线</span>'
-                    : `<span class="item-format">${track.format ? track.format.toLowerCase() : 'mp3'}</span>`; // Fallback format
+            const currentTime = audio.currentTime;
+            const currentIdx = getCurrentLyricIndex(playerState.currentLyrics, currentTime);
+            
+            if (currentIdx < 0) {
+                lyricsContainer.innerHTML = '<div class="lyrics-empty">♪ 等待播放 ♪</div>';
+                return;
+            }
+            
+            // 只显示三行：上一行、当前行、下一行
+            let html = '';
+            const lyrics = playerState.currentLyrics;
+            
+            // 上一行（已播放完，蓝色）
+            if (currentIdx > 0 && lyrics[currentIdx - 1].text) {
+                html += `<div class="lyrics-line prev" style="color: ${LYRICS_BLUE};">${lyrics[currentIdx - 1].text}</div>`;
+            }
+            
+            // 当前行（渐变进度）
+            if (lyrics[currentIdx].text) {
+                const startTime = lyrics[currentIdx].time;
+                const endTime = getLyricEndTime(lyrics, currentIdx);
+                const progress = calculateLyricProgress(currentTime, startTime, endTime);
+                const gradientStyle = generateGradientStyle(progress);
+                
+                html += `<div class="lyrics-line active" style="background: ${gradientStyle}; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">${lyrics[currentIdx].text}</div>`;
+            }
+            
+            // 下一行（未播放，灰白色）
+            if (currentIdx < lyrics.length - 1 && lyrics[currentIdx + 1].text) {
+                html += `<div class="lyrics-line next" style="color: ${LYRICS_GRAY};">${lyrics[currentIdx + 1].text}</div>`;
+            }
+            
+            lyricsContainer.innerHTML = html || '<div class="lyrics-empty">♪ ♪ ♪</div>';
+        }
+
+        // 开始歌词同步
+        function startLyricsSync() {
+            stopLyricsSync();
+            playerState.lyricsTimer = setInterval(updateLyricsDisplay, 200);
+        }
+
+        // 停止歌词同步
+        function stopLyricsSync() {
+            if (playerState.lyricsTimer) {
+                clearInterval(playerState.lyricsTimer);
+                playerState.lyricsTimer = null;
+            }
+        }
+
+        // 加载歌词
+        async function loadLyrics(track) {
+            playerState.currentLyrics = [];
+            
+            if (!track) {
+                updateLyricsDisplay();
+                return;
+            }
+            
+            try {
+                let lrcContent = '';
+                
+                // 只有在线音乐才加载歌词
+                if (playerState.mode === 'online') {
+                    const songId = track.id;
                     
+                    if (songId) {
+                        // 使用后端 API 获取歌词
+                        console.log(`[MUSIC-PLAYER] 加载歌词: ${songId}`);
+                        lrcContent = await MusicAPI.getLyrics(songId);
+                    } else if (track.lrc) {
+                        // 如果有直接的歌词 URL，尝试获取
+                        try {
+                            const res = await fetch(track.lrc, { signal: AbortSignal.timeout(8000) });
+                            if (res.ok) {
+                                lrcContent = await res.text();
+                            }
+                        } catch (e) {
+                            console.warn('直接获取歌词失败:', e);
+                        }
+                    }
+                    
+                    if (lrcContent) {
+                        playerState.currentLyrics = parseLRC(lrcContent);
+                        console.log(`[MUSIC-PLAYER] 歌词加载成功: ${playerState.currentLyrics.length} 行`);
+                    }
+                }
+                // 本地音乐不加载在线歌词，显示"暂无歌词"
+            } catch (e) {
+                console.error('加载歌词失败:', e);
+            }
+            
+            updateLyricsDisplay();
+        }
+
+        // 默认唱片样式
+        const DEFAULT_DISK_STYLE = 'linear-gradient(to bottom, #ddd, #aaa)';
+        
+        // 更新专辑封面
+        function updateAlbumCover(track) {
+            const diskEl = document.getElementById('disk');
+            if (!diskEl) return;
+            
+            // 获取封面 URL（在线音乐有 pic 属性）
+            const coverUrl = track?.pic || track?.cover || null;
+            
+            if (coverUrl) {
+                // 预加载图片
+                const img = new Image();
+                img.onload = () => {
+                    diskEl.style.background = `url('${coverUrl}') center/cover`;
+                };
+                img.onerror = () => {
+                    // 加载失败，使用默认样式
+                    diskEl.style.background = DEFAULT_DISK_STYLE;
+                };
+                img.src = coverUrl;
+            } else {
+                // 无封面，使用默认样式
+                diskEl.style.background = DEFAULT_DISK_STYLE;
+            }
+        }
+
+        // 播放曲目
+        async function playTrack(index) {
+            const playlist = getCurrentPlaylist();
+            if (!playlist[index]) return;
+            
+            playerState.index = index;
+            const track = playlist[index];
+            
+            // 获取音频源
+            let src = '';
+            if (playerState.mode === 'local') {
+                src = track.path || `musics/${track.filename}`;
+            } else {
+                // 在线音乐：检查是否需要动态获取播放链接
+                src = track.url;
+                
+                // 如果 url 是 API 端点格式或为空，需要获取真实播放链接
+                if (!src || src.includes('/song/url')) {
+                    const songId = track.id;
+                    if (songId) {
+                        showToast('正在获取播放链接...', 'info', 2000);
+                        console.log(`[MUSIC-PLAYER] 获取播放链接: ${songId}`);
+                        src = await MusicAPI.getSongUrl(songId);
+                        
+                        // 更新缓存的 URL
+                        if (src) {
+                            track.url = src;
+                        }
+                    }
+                }
+            }
+            
+            if (!src) {
+                showToast('无法获取音频源，可能是版权限制', 'error');
+                // 自动跳到下一首
+                setTimeout(() => nextTrack(), 1500);
+                return;
+            }
+            
+            audio.src = src;
+            
+            try {
+                await audio.play();
+                playerState.isPlaying = true;
+                updatePlayerUI();
+                savePlayerState();
+                
+                // 更新曲目信息
+                const title = track.title || track.name || '未知歌曲';
+                const artist = track.artist || '未知艺术家';
+                document.getElementById('music-info').innerHTML = 
+                    `<div class="track-title">${title}</div><div class="track-artist">${artist}</div><div class="track-format">${track.format || ''}</div>`;
+                
+                // 更新专辑封面
+                updateAlbumCover(track);
+                
+                // 高亮当前曲目
+                highlightCurrentTrack();
+                
+                // 加载歌词
+                loadLyrics(track);
+                startLyricsSync();
+                
+            } catch (e) {
+                console.error('播放失败:', e);
+                showToast('播放失败，可能是版权限制', 'error');
+                // 自动跳到下一首
+                setTimeout(() => nextTrack(), 1500);
+            }
+        }
+
+        // 上一曲
+        function prevTrack() {
+            const playlist = getCurrentPlaylist();
+            if (playlist.length === 0) return;
+            playerState.index = (playerState.index - 1 + playlist.length) % playlist.length;
+            playTrack(playerState.index);
+        }
+
+        // 下一曲
+        function nextTrack() {
+            const playlist = getCurrentPlaylist();
+            if (playlist.length === 0) return;
+            playerState.index = (playerState.index + 1) % playlist.length;
+            playTrack(playerState.index);
+        }
+
+        // 高亮当前曲目
+        function highlightCurrentTrack() {
+            const items = playlistItems.querySelectorAll('.playlist-item');
+            items.forEach((item, i) => {
+                item.classList.toggle('active', i === playerState.index);
+            });
+        }
+
+        // 渲染播放列表
+        function renderPlaylist(list, isLocal = true) {
+            if (!list || list.length === 0) {
+                const emptyIcon = isLocal ? 'fa-folder-open' : 'fa-search';
+                const emptyText = isLocal ? '暂无本地音乐' : '暂无搜索结果';
+                playlistItems.innerHTML = `<div class="playlist-empty"><i class="fas ${emptyIcon}"></i> ${emptyText}</div>`;
+                document.getElementById('playlist-count').innerText = '0';
+                return;
+            }
+            
+            playlistItems.innerHTML = list.map((item, i) => {
+                const title = item.title || item.name || '未知歌曲';
+                const artist = item.artist || '未知艺术家';
+                const format = item.format || (isLocal ? '' : '网易云');
+                const formatClass = isLocal ? 'local' : 'netease';
+                
                 return `
-                    <div class="playlist-item ${index === playerState.currentIndex ? 'active' : ''}" data-index="${index}">
-                        <span class="item-index">${index + 1}</span>
+                    <div class="playlist-item ${i === playerState.index && playerState.mode === (isLocal ? 'local' : 'online') ? 'active' : ''}" onclick="playTrack(${i})">
+                        <span class="item-index">${i + 1}</span>
                         <div class="item-info">
-                            <div class="item-title">${track.title || '未知歌曲'}</div>
-                            <div class="item-artist">${track.artist || '未知艺术家'}</div>
+                            <div class="item-title">${title}</div>
+                            <div class="item-artist">${artist}</div>
                         </div>
-                        ${sourceBadge}
+                        <span class="item-format ${formatClass}">${format}</span>
                     </div>
                 `;
             }).join('');
             
-            // 绑定列表项的点击事件
-            playlistItems.querySelectorAll('.playlist-item').forEach(item => {
-                item.addEventListener('click', () => {
-                    const index = parseInt(item.dataset.index);
-                    playTrack(index);
-                });
-            });
+            document.getElementById('playlist-count').innerText = list.length;
         }
-        
-        function updateTrackDisplay() {
-            const playlist = getCurrentPlaylist();
-            const track = playlist[playerState.currentIndex];
-            
-            if (track && musicInfo && disk) {
-                const sourceClass = track.source === 'netease' ? 'netease' : 'local';
-                const sourceText = track.source === 'netease' ? '网易云' : (track.format || '本地');
-                    
-                musicInfo.innerHTML = `
-                    <div class="track-title">${track.title}</div>
-                    <div class="track-artist">${track.artist}</div>
-                    <div class="track-source ${sourceClass}">${sourceText}</div>
-                `;
-                disk.classList.toggle('netease', track.source === 'netease');
-            } else if (musicInfo) { // 如果没有track，显示占位符
-                musicInfo.innerHTML = `
-                    <div class="track-title">暂无音乐</div>
-                    <div class="track-artist">--</div>
-                    <div class="track-source" style="display: none;"></div>
-                `;
-            }
-            updatePlaylistHighlight(); // 刷新高亮
-        }
-        
-        function updatePlaylistHighlight() {
-            const items = playlistItems.querySelectorAll('.playlist-item');
-            items.forEach((item, index) => {
-                item.classList.toggle('active', index === playerState.currentIndex);
-            });
-        }
-        
-        // ========== 歌词显示 ==========
-        function updateLyricsDisplay(currentTime) {
-            if (!lyricsContainer) return;
 
-            if (playerState.lyrics.length === 0) {
-                if (lyricsContainer.innerHTML.trim() !== '<div class="lyrics-empty">暂无歌词</div>') {
-                     lyricsContainer.innerHTML = '<div class="lyrics-empty">暂无歌词</div>';
-                }
-                return;
-            }
-
-            let currentIndex = -1;
-            // 找到当前时间对应的歌词索引
-            for (let i = 0; i < playerState.lyrics.length; i++) {
-                if (playerState.lyrics[i].time <= currentTime) {
-                    currentIndex = i;
-                } else {
-                    break; // 找到第一个比当前时间晚的，就可以停止
-                }
-            }
-
-            // 仅当歌词索引变化时才更新DOM，减少渲染开销
-            if (currentIndex === playerState.currentLyricIndex) return;
-            playerState.currentLyricIndex = currentIndex;
-            
-            const displayLines = [];
-            // 显示当前行，上一行，下一行
-            for (let i = -2; i <= 2; i++) { // 尝试显示更多以便于平滑过渡
-                const index = currentIndex + i;
-                if (index >= 0 && index < playerState.lyrics.length) {
-                    const line = playerState.lyrics[index];
-                    displayLines.push({
-                        text: line.text,
-                        isActive: i === 0,    // 当前行
-                        isPrev: i === -1,   // 上一行
-                        isNext: i === 1,    // 下一行
-                        isFarPrev: i === -2, // 离当前行更远
-                        isFarNext: i === 2   // 离当前行更远
-                    });
-                }
-            }
-            
-            if (displayLines.length === 0) {
-                lyricsContainer.innerHTML = '<div class="lyrics-empty">暂无歌词</div>';
-                return;
-            }
-            
-            // 使用 requestAnimationFrame 确保在渲染前进行DOM操作
-            requestAnimationFrame(() => {
-                lyricsContainer.innerHTML = displayLines.map(line => {
-                    let className = 'lyrics-line';
-                    if (line.isActive) className += ' active';
-                    else if (line.isPrev) className += ' prev';
-                    else if (line.isNext) className += ' next';
-                    else if (line.isFarPrev || line.isFarNext) className += ' fade'; // 更远行淡出
-                    return `<div class="${className}">${line.text}</div>`;
-                }).join('');
-            });
-        }
-        
-        async function loadLyrics(track) {
-            playerState.lyrics = []; // 清空旧歌词
-            playerState.currentLyricIndex = -1;
-            if (lyricsContainer) lyricsContainer.innerHTML = '<div class="lyrics-empty">正在加载歌词...</div>';
-            
-            if (track.source === 'netease' && track.id) {
-                try {
-                    const lrcText = await MusicAPI.getLyrics(track.id);
-                    if (lrcText) {
-                        const parsed = parseLRC(lrcText);
-                        playerState.lyrics = parsed;
-                        if (parsed.length > 0) {
-                            updateLyricsDisplay(audio.currentTime || 0);
-                        } else {
-                            if (lyricsContainer) lyricsContainer.innerHTML = '<div class="lyrics-empty">暂无歌词</div>';
-                        }
-                    } else {
-                         if (lyricsContainer) lyricsContainer.innerHTML = '<div class="lyrics-empty">暂无歌词</div>';
-                    }
-                } catch (e) {
-                    console.error('加载歌词失败:', e);
-                    if (lyricsContainer) lyricsContainer.innerHTML = '<div class="lyrics-empty">歌词加载失败</div>';
-                }
-            } else { // 本地音乐或不支持歌词源
-                if (lyricsContainer) lyricsContainer.innerHTML = '<div class="lyrics-empty">本地音乐暂不支持歌词</div>';
-            }
-        }
-        
-        // ========== 播放逻辑 ==========
-        
-        async function playTrack(index) {
-            const playlist = getCurrentPlaylist();
-            if (index < 0 || index >= playlist.length) {
-                 console.warn("播放索引无效:", index);
-                 return; 
-            }
-            
-            playerState.currentIndex = index;
-            const track = playlist[index];
-            
-            // 检查格式支持
-            if (track.source !== 'netease' && track.format) {
-                const ext = track.format.toLowerCase();
-                if (!audioSupport[ext]) {
-                    showToast(`您的浏览器不支持 ${ext.toUpperCase()} 格式`, 'error');
-                    setTimeout(playNext, 1500); // 自动跳到下一首
-                    return;
-                }
-            }
-            
-            // 构建音频源 URL
-            let src = '';
-            if (track.source === 'netease' && track.url) {
-                 src = track.url; // Meting API 返回的在线URL
-            } else if (track.source === 'local' && track.path) {
-                 src = track.path; // 本地文件路径
-            } else {
-                showToast("歌曲源或路径无效", 'error');
-                setTimeout(playNext, 1500);
-                return;
-            }
-
-            audio.src = src;
-            
-            // 加载歌词 (异步)
-            loadLyrics(track);
-            
-            // 监听 loadedmetadata，用于获取时长等信息
-            audio.onloadedmetadata = () => {
-                 if (playerState.lyrics.length > 0) {
-                    updateLyricsDisplay(0); // 初始化歌词位置
-                 }
-            };
-            
-            // 播放
-            try {
-                await audio.play();
-                playerState.isPlaying = true;
-                updatePlayState();
-                updateTrackDisplay();
-                savePlayerState(); // 保存播放状态
-            } catch (e) {
-                console.error('播放失败:', e);
-                showToast('播放失败，正在尝试下一首...', 'error');
-                setTimeout(playNext, 1500);
-            }
-        }
-        
-        function playNext() {
-            const playlist = getCurrentPlaylist();
-            if (playlist.length === 0) return;
-            // 循环播放
-            playerState.currentIndex = (playerState.currentIndex + 1) % playlist.length;
-            playTrack(playerState.currentIndex);
-        }
-        
-        function playPrev() {
-            const playlist = getCurrentPlaylist();
-            if (playlist.length === 0) return;
-            // 循环播放，从后往前
-            playerState.currentIndex = (playerState.currentIndex - 1 + playlist.length) % playlist.length;
-            playTrack(playerState.currentIndex);
-        }
-        
-        function updatePlayState() {
-            if (playBtn) {
-                playBtn.innerHTML = playerState.isPlaying ? '<i class="fas fa-pause"></i>' : '<i class="fas fa-play"></i>';
-            }
-            if (disk) {
-                disk.classList.toggle('playing', playerState.isPlaying);
-            }
-        }
-        
-        // ========== 模式切换 (本地 vs 在线) ==========
-        function switchMode(mode) {
+        // 切换标签页
+        function switchTab(mode) {
             playerState.mode = mode;
-            playerState.currentIndex = 0; // 切换模式时回到列表开头
             
-            // 高亮当前 tab
-            playlistTabs.forEach(tab => {
+            // 更新标签高亮
+            tabs.forEach(tab => {
                 tab.classList.toggle('active', tab.dataset.tab === mode);
             });
             
             // 显示/隐藏搜索框
-            if (searchBox) searchBox.classList.toggle('show', mode === 'online');
-            
-            renderPlaylist(); // 重新渲染列表
-            updateTrackDisplay(); // 更新当前播放信息
-            savePlayerState(); // 保存模式
-            
-            // 如果切换到在线模式且列表为空，则加载热门歌曲
-            if (mode === 'online' && playerState.onlinePlaylist.length === 0 && !playerState.isLoading) {
-                loadHotSongs();
+            if (searchBox) {
+                searchBox.classList.toggle('show', mode === 'online');
             }
-        }
-        
-        // ========== 搜索歌曲 ==========
-        async function searchSongs(keyword) {
-            if (!keyword || !keyword.trim()) { showToast('请输入搜索关键词', 'error'); return; }
             
-            playerState.isLoading = true;
-            if (searchBtn) searchBtn.disabled = true;
-            if (searchBtn) searchBtn.innerHTML = '<span class="loading-spinner"></span>';
-            
-            try {
-                const results = await MusicAPI.search(keyword);
-                if (results.length === 0) {
-                    showToast('未找到相关歌曲', 'error');
-                    playerState.onlinePlaylist = []; // 清空旧结果
+            // 渲染对应的播放列表
+            if (mode === 'local') {
+                renderPlaylist(playerState.localPlaylist, true);
+            } else {
+                // 如果在线列表为空，先显示加载状态，再加载热门歌曲
+                if (playerState.onlinePlaylist.length === 0) {
+                    // 立即显示加载状态，避免显示本地列表
+                    playlistItems.innerHTML = '<div class="playlist-empty"><i class="fas fa-spinner fa-spin"></i> 正在加载在线音乐...</div>';
+                    document.getElementById('playlist-count').innerText = '0';
+                    // 然后加载热门歌曲
+                    loadHotSongs();
                 } else {
-                    playerState.onlinePlaylist = results;
-                    showToast(`找到 ${results.length} 首歌曲`, 'success');
+                    renderPlaylist(playerState.onlinePlaylist, false);
                 }
-                playerState.currentIndex = 0; // 重置到第一首
-                renderPlaylist();
-            } catch (e) {
-                showToast('搜索失败，请稍后重试', 'error');
-                playerState.onlinePlaylist = []; // 搜索失败时清空
-                renderPlaylist(); // 清空列表显示
-            } finally {
-                playerState.isLoading = false;
-                if (searchBtn) searchBtn.disabled = false;
-                if (searchBtn) searchBtn.innerHTML = '<i class="fas fa-search"></i>搜索';
             }
+            
+            savePlayerState();
         }
         
-        // ========== 加载热门歌曲 ==========
+        // 加载热门歌曲
         async function loadHotSongs() {
-            playerState.isLoading = true;
-            renderPlaylist(); // 先显示加载状态
-
+            showToast('正在加载热门歌曲...', 'info');
             try {
-                const results = await MusicAPI.getHot();
-                playerState.onlinePlaylist = results;
-                renderPlaylist();
+                const results = await MusicAPI.getHotSongs();
+                if (results && results.length > 0) {
+                    playerState.onlinePlaylist = results.map(item => ({
+                        ...item,
+                        title: item.name,
+                        format: '网易云'
+                    }));
+                    renderPlaylist(playerState.onlinePlaylist, false);
+                    showToast(`✓ 已加载 ${results.length} 首热门歌曲`, 'success');
+                } else {
+                    showToast('暂无热门歌曲', 'info');
+                }
             } catch (e) {
-                console.error('加载热门歌曲失败:', e);
-                playlistItems.innerHTML = `<div class="playlist-empty"><i class="fas fa-exclamation-circle"></i> 加载热门失败，请尝试搜索</div>`;
-            } finally {
-                playerState.isLoading = false;
+                console.error('[MUSIC-API] 加载热门歌曲失败:', e);
+                showToast('🔧 音乐服务暂时不可用', 'error');
             }
         }
-        
-        // ========== 加载本地播放列表 ==========
+
+        // 加载本地播放列表
         async function loadLocalPlaylist() {
             try {
-                // 假设 playlist.json 文件与 index.html 在同一目录
-                const response = await fetch('playlist.json'); 
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                const data = await response.json();
-                playerState.localPlaylist = (data.tracks || []).map(track => ({
-                    ...track, source: 'local' // 标记为本地音乐
-                }));
-            } catch (e) {
-                console.warn('加载本地播放列表失败:', e);
-                playerState.localPlaylist = []; // 出错时清空
-            }
-            
-            // 恢复之前保存的状态
-            const saved = restorePlayerState();
-            if (saved) {
-                playerState.mode = saved.mode || 'local';
-                playerState.volume = saved.volume !== undefined ? saved.volume : 0.3;
+                const res = await fetch('playlist.json');
+                if (!res.ok) throw new Error('加载失败');
+                const data = await res.json();
                 
-                // 尝试设置 currentIndex，但要确保索引在当前播放列表范围内
-                let currentPlaylist = playerState.mode === 'local' ? playerState.localPlaylist : playerState.onlinePlaylist;
-                playerState.currentIndex = (saved.currentIndex !== undefined && saved.currentIndex < currentPlaylist.length)
-                                         ? saved.currentIndex : 0;
-            }
-            
-            audio.volume = playerState.volume;
-            
-            // 初始化播放列表显示和当前曲目显示
-            switchMode(playerState.mode); // 确保 correct list is rendered
-            updateTrackDisplay(); 
-            
-            // 【加载音频】加载完播放列表后，如果当前是本地播放且有曲目，预加载第一首
-            const currentPlaylist = getCurrentPlaylist();
-            if (currentPlaylist.length > 0 && playerState.mode === 'local') {
-                 const track = currentPlaylist[playerState.currentIndex];
-                 if (track && track.path) {
-                    audio.src = track.path;
-                 }
-            } else if (currentPlaylist.length === 0) {
-                 // 本地列表为空，在线列表也可能为空，需要异步加载
-                 if (playerState.mode === 'online' && !playerState.isLoading) {
-                    loadHotSongs();
-                 }
+                // 重新解析文件名以修复格式问题
+                playerState.localPlaylist = (data.tracks || []).map(track => {
+                    const parsed = parseTrackName(track.filename);
+                    return {
+                        ...track,
+                        artist: parsed.artist,
+                        title: parsed.title,
+                        format: parsed.format || track.format
+                    };
+                });
+                
+                if (playerState.mode === 'local') {
+                    renderPlaylist(playerState.localPlaylist, true);
+                }
+                
+                showToast(`已加载 ${playerState.localPlaylist.length} 首本地音乐`);
+            } catch (e) {
+                console.error('加载本地播放列表失败:', e);
+                playerState.localPlaylist = [];
+                if (playerState.mode === 'local') {
+                    playlistItems.innerHTML = '<div class="playlist-empty"><i class="fas fa-folder-open"></i> 暂无本地音乐</div>';
+                }
             }
         }
 
-        // ========== 初始化和事件绑定 (都在 DOMContentLoaded 中完成) ==========
-        document.addEventListener('DOMContentLoaded', () => {
-            // 检查 Three.js 加载状态
-            if (typeof THREE === 'undefined') {
-                console.error("Three.js 未加载成功");
-                const earthContainer = document.getElementById('earth-container');
-                if (earthContainer) earthContainer.innerHTML = '<div style="color:red;padding-top:100px;">3D Earth: Three.js 加载失败</div>';
-                return; // THREE.js 未加载则不继续执行
+        // 搜索在线音乐
+        async function searchOnlineMusic(keyword) {
+            if (!keyword || !keyword.trim()) {
+                showToast('请输入搜索关键词', 'error');
+                return;
             }
-
-            // 初始化各个模块
-            initGalaxy();       // 背景星空
-            initEarth();        // 3D 地球
-            initRipple();       // 音频波纹 Canvas
-            animateEarth();     // 统一的动画渲染循环
-
-            // 播放器相关初始化
-            loadLocalPlaylist(); // 加载本地列表和设置初始状态
-
-            // 启动标语轮播
-            if (quoteElement) typeQuote();
             
-            // 绑定播放器和列表相关事件
+            console.log('[MUSIC-SEARCH] 搜索:', keyword);
+            
+            // 显示搜索中状态
+            showToast('正在搜索...', 'info');
+            
+            // 立即显示加载状态，避免显示之前的列表
+            if (playerState.mode === 'online') {
+                playlistItems.innerHTML = '<div class="playlist-empty"><i class="fas fa-spinner fa-spin"></i> 正在搜索...</div>';
+                document.getElementById('playlist-count').innerText = '0';
+            }
+            
+            // 禁用搜索按钮
+            const searchBtn = document.getElementById('search-btn');
+            if (searchBtn) {
+                searchBtn.disabled = true;
+                searchBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 搜索中';
+            }
+            
+            try {
+                const result = await MusicAPI.search(keyword);
+                
+                if (result.success && result.results.length > 0) {
+                    console.log(`[MUSIC-SEARCH] 成功: ${result.results.length} 首歌曲`);
+                    
+                    playerState.onlinePlaylist = result.results.map(item => ({
+                        ...item,
+                        title: item.name,
+                        format: '网易云'
+                    }));
+                    
+                    if (playerState.mode === 'online') {
+                        renderPlaylist(playerState.onlinePlaylist, false);
+                    }
+                    
+                    showToast(`✓ 找到 ${result.results.length} 首歌曲`, 'success');
+                } else if (!result.success) {
+                    // 搜索失败，显示错误信息
+                    console.error('[MUSIC-SEARCH] 失败:', result.error);
+                    
+                    let errorMsg = '搜索失败';
+                    if (result.code === 504) {
+                        errorMsg = '⏱ 搜索超时，请检查网络连接';
+                    } else if (result.code >= 500) {
+                        errorMsg = '🔧 音乐服务暂时不可用，请稍后再试';
+                    } else if (result.error) {
+                        errorMsg = `⚠ ${result.error}`;
+                    }
+                    
+                    showToast(errorMsg, 'error');
+                    playerState.onlinePlaylist = [];
+                    if (playerState.mode === 'online') {
+                        renderPlaylist([], false);
+                    }
+                } else {
+                    // 没有结果
+                    console.log('[MUSIC-SEARCH] 无结果');
+                    showToast(`🔍 没有找到 "${keyword}" 相关的歌曲`, 'info');
+                    playerState.onlinePlaylist = [];
+                    if (playerState.mode === 'online') {
+                        renderPlaylist([], false);
+                    }
+                }
+            } catch (e) {
+                console.error('[MUSIC-SEARCH] 意外错误:', e);
+                showToast('⚠ 搜索出错，请稍后重试', 'error');
+                playerState.onlinePlaylist = [];
+                if (playerState.mode === 'online') {
+                    renderPlaylist([], false);
+                }
+            } finally {
+                // 恢复搜索按钮
+                if (searchBtn) {
+                    searchBtn.disabled = false;
+                    searchBtn.innerHTML = '<i class="fas fa-search"></i>搜索';
+                }
+            }
+        }
+
+        // 绑定事件
+        document.addEventListener('DOMContentLoaded', () => {
+            initGalaxy();
+            initEarth();
+            initRipple();
+            animateAll();
+            animateRipple();
+            typeQuote();
+
+            // 恢复状态
+            restorePlayerState();
+            audio.volume = playerState.volume;
+
+            // 播放/暂停按钮
             if (playBtn) playBtn.addEventListener('click', () => {
-                const playlist = getCurrentPlaylist();
-                if (playlist.length === 0) { showToast('播放列表为空', 'error'); return; }
-                if (playerState.isPlaying) audio.pause();
-                else audio.play().catch(e => { console.error('播放操作被用户取消或失败:', e); showToast('请允许音频播放', 'warning'); }); // 兼容浏览器静音策略
-                playerState.isPlaying = !playerState.isPlaying; // 仅在此更新状态
-                updatePlayState();
+                if (audio.src && audio.src !== window.location.href) {
+                    if (audio.paused) {
+                        audio.play();
+                        playerState.isPlaying = true;
+                        startLyricsSync();
+                    } else {
+                        audio.pause();
+                        playerState.isPlaying = false;
+                        stopLyricsSync();
+                    }
+                    updatePlayerUI();
+                } else {
+                    // 没有选择歌曲，播放第一首
+                    const playlist = getCurrentPlaylist();
+                    if (playlist.length > 0) {
+                        playTrack(0);
+                    } else {
+                        showToast('请先选择歌曲');
+                    }
+                }
             });
-            if (prevBtn) prevBtn.addEventListener('click', playPrev);
-            if (nextBtn) nextBtn.addEventListener('click', playNext);
-            
-            if (playlistBtn) playlistBtn.addEventListener('click', (e) => {
-                e.stopPropagation(); // 阻止冒泡
+
+            // 上一曲/下一曲
+            if (prevBtn) prevBtn.addEventListener('click', prevTrack);
+            if (nextBtn) nextBtn.addEventListener('click', nextTrack);
+
+            // 播放列表面板
+            document.getElementById('playlist-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
                 playlistPanel.classList.toggle('show');
             });
-            if (closePanelBtn) closePanelBtn.addEventListener('click', () => {
+            document.getElementById('close-panel-btn').addEventListener('click', () => {
                 playlistPanel.classList.remove('show');
             });
 
-            document.addEventListener('click', (e) => { // 点击其他区域关闭播放列表
-                if (!playlistPanel || !playlistPanel.contains(e.target)) {
-                    playlistPanel.classList.remove('show');
-                }
+            // 标签页切换
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => switchTab(tab.dataset.tab));
             });
-            
-            playlistTabs.forEach(tab => {
-                tab.addEventListener('click', () => {
-                    switchMode(tab.dataset.tab === 'online' ? 'online' : 'local');
-                });
-            });
-            
-            if (searchBtn) searchBtn.addEventListener('click', () => {
-                searchSongs(searchInput.value);
-            });
-            if (searchInput) searchInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    searchSongs(searchInput.value);
-                }
-            });
-            
-            if (hotTagsElement) hotTagsElement.querySelectorAll('.hot-tag').forEach(tag => {
-                tag.addEventListener('click', () => {
-                    const keyword = tag.dataset.keyword;
-                    if (searchInput) searchInput.value = keyword;
-                    searchSongs(keyword);
-                });
-            });
-            
-            // 播放器事件绑定
-            audio.addEventListener('ended', playNext);
-            audio.addEventListener('timeupdate', () => {
-                // 节拍波纹也需要 timeupdate，确保 audio 对象可用
-                if (analyser) animateRipple(); // 节拍波纹随时间更新
-                updateLyricsDisplay(audio.currentTime);
-            });
-            audio.addEventListener('error', () => {
-                const playlist = getCurrentPlaylist();
-                const track = playlist[playerState.currentIndex];
-                let msg = '未知错误';
-                if (track && track.source !== 'netease' && track.format) {
-                    const ext = track.format.toLowerCase();
-                    if (!audioSupport[ext]) msg = `不支持 ${ext.toUpperCase()} 格式`; 
-                    else msg = '音频加载失败';
-                } else { msg = '音频加载失败'; }
-                showToast(msg, 'error');
-                setTimeout(playNext, 1500);
-            });
-            // 解决 iOS Safari 11 必须手动点击播放的限制
-            document.addEventListener('touchstart', () => {
-                if (audioContext && audioContext.state === 'suspended') {
-                    audioContext.resume();
-                }
-            }, { once: true }); // 仅在第一次touchstart时尝试
 
-            // 窗口 resize 事件监听
+            // 搜索功能
+            document.getElementById('search-btn').addEventListener('click', () => {
+                const keyword = document.getElementById('search-input').value.trim();
+                searchOnlineMusic(keyword);
+            });
+            
+            document.getElementById('search-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    const keyword = e.target.value.trim();
+                    searchOnlineMusic(keyword);
+                }
+            });
+
+            // 音频事件
+            audio.addEventListener('ended', nextTrack);
+            audio.addEventListener('error', () => {
+                showToast('音频加载失败', 'error');
+                setTimeout(() => nextTrack(), 1500);
+            });
+
+            // 初始化：优先加载本地播放列表
+            loadLocalPlaylist();
+            
+            // 初始化标签页状态
+            switchTab(playerState.mode);
+
+            // 初始化运行统计
+            initSiteStats();
+            
+            // 初始化网易云账号设置
+            initAccountSettings();
+
             window.addEventListener('resize', onResize);
-            // 页面加载完成立即触发一次 resize，以设置正确尺寸
-            onResize(); 
+            onResize();
         });
+
+        // ==========================================
+        // 网易云账号设置
+        // ==========================================
+        const ACCOUNT_CONFIG_KEY = 'neteaseAccountConfig';
+        
+        // 默认网易云账号配置（所有访问者共享）
+        // 注意：请将下面的占位符替换为您的实际用户ID和Cookie
+        const DEFAULT_NETEASE_CONFIG = {
+            enabled: true,
+            userId: '1816332881',  // 请替换为您的网易云用户ID
+            cookie: "_iuqxldmzr_=32; _ntes_nnid=96a33f2cd9e23388bebb11561256513d,1763365892419; _ntes_nuid=96a33f2cd9e23388bebb11561256513d; NMTID=00OtW5NrX3S61nrMkSsiSpCSo9_PXUAAAGakMw2gw; WEVNSM=1.0.0; WNMCID=fjsedk.1763365894895.01.0; WM_TID=Pw1GtuP8tc5BREEQBBPS2YNF4KUkH7x2; ntes_utid=tid._.9F8L0VcidIZAFhQRRVeWyZNA5KRwYMJP._.0; sDeviceId=YD-qeHc0vLR3I5BA0AUAFPWnZJF9bE1Nccl; __snaker__id=FDWoIRa6Rr3ebjZP; ntes_kaola_ad=1; timing_user_id=time_zMeIjob4LR; _ga=GA1.1.1777729360.1763391223; _ga_C6TGHFPQ1H=GS2.1.s1764039526$o2$g0$t1764039526$j60$l0$h0; _clck=7nv0xn%5E2%5Eg1b%5E0%5E2147; __csrf=2418fd066ca336e84eb438c4a0c245e5; WM_NI=nA4008r03qpbs8HlzGsCcAOBrqWH7JIy%2BUq6%2BAbYdY96U5oFLNJeXDWrXbYG7JnTpQ%2BuHvRuKrfukEMNyxcyvBob6IIjm7c5QPRbaiPTLmGh7WpTTi9Tyool65oiLgODUU4%3D; WM_NIKE=9ca17ae2e6ffcda170e2e6eed6c873f19abda9c55291b48ea3d84a878f9ab1d266a6e899b1b46a9ce986b4c52af0fea7c3b92aae9ffcd1b334b2f0fd92f36ab1e8888df94db19dada2ce4ab2af99a9b6428ba7e5b6f43ee99faebae753fbea9bd6ee4e90928686db5095ae9883dc4df596a2b5f35be9ab8897d17f89aeaa96ea4f8f92b799e273b69ea183b5438bb6a3d8e23f93909e83e463948c848ec664f589c0b5d763fb8cb790ee68f6eba18acf6d8d9c9bb6b737e2a3; gdxidpyhxdE=qe6LMjwVL9lEC8zmd8oj%2BL4xY8U94IE3N7ZnEPnhXg%2F2yi1cqlqj989dx0ISL66U6Xpk9O9%2B%5Cff%5Camz6GJTEy%2FN61v1Dbdt0s5hXhNqncEjbzv35VM%2FX9My%5C62nJdAuaMteAkkcIGOi%2BDgSSmg2u8SldcPxdNyQXx%2FweoSmwOMxDgU4b%3A1764989934251; JSESSIONID-WYYY=0%5C4gffm17UFkd%2BWN%2BWb7teXPqjj9hwmrFNAl2zjxOPvWdg7A4X3I%2FM4qmzkuy7YXFz5qzXD1MrrA%2F2YUw%2BQs%5CZIA3BNVQ6loWyqx5%2Bl7xW07w%2FwQryfgJgzr%5CsMnPhXf9ux5fDCWIch0y84NA%2FlFnNdtQ0CCpO6NGjzNcUUbPNrCA%2Bcn%3A1764990885980; MUSIC_U=0058F2587422159C207439E0A256F3FEA7CA951D2067118B47D67CA89387ADA271D0218A6420AA1F72708A9E32A347D2189528D411AF065DEDFF8866157C42CA4B8F6E9C0B7DF12D5CF2A8EDCD76628CBFDAAB273823B3875A86D1D202CAD5D13DFE083584D34960A1047CAB242290DFEE8E02F0CC954F8E4EC7A8EFFB56673D0E5930904890F270B5050608798BD651105C3E6763F7C05B58D9EC65C4240ECB160DA387B636F6534754685472C9D62F5E1F515C63D3A48EA1D50F7D1EDFC7446DDB4671FBE4B5A732B83BEBC9C1CC874BE2257DC3476BE03C0BF6EFE07939260B96E514BB6548219F5F33B7BB4C85383EA0C68DA939A15904B5A6406AEE389744FED49DE69D97D618968525AD60AE34AC41295087BB31649A827FBECA4B66F8C7CA6F4B8300C28293F076A02E51ED0525E58E3E3917D52F71282C507691975BAB25E91C4DD90150F31CCE9BAC3FE934E71A514872922533964FD82745AE9761CBD488E452039868BB0B8C07566B1250E4D2009415D559114A45BEA5D94C55BBE36C044513A3533A4A33171DEFFEF37822; __csrf=b44bd2d9db1d34ca3baae0cb9935b10e",    // 请替换为您的网易云Cookie（可选，用于VIP内容）
+        };
+        
+        function saveAccountConfig(config) {
+            try {
+                const data = {
+                    enabled: !!config.enabled,
+                    userId: config.userId || '',
+                    cookie: config.cookie || '',
+                    configuredAt: Date.now()
+                };
+                localStorage.setItem(ACCOUNT_CONFIG_KEY, JSON.stringify(data));
+                return true;
+            } catch (e) {
+                console.warn('保存账号配置失败:', e);
+                return false;
+            }
+        }
+        
+        function loadAccountConfig() {
+            // 优先检查用户自定义配置
+            try {
+                const userConfig = localStorage.getItem(ACCOUNT_CONFIG_KEY);
+                if (userConfig) {
+                    const parsed = JSON.parse(userConfig);
+                    // 如果用户配置已启用，使用用户配置
+                    if (parsed.enabled) {
+                        return parsed;
+                    }
+                }
+            } catch (e) {
+                console.warn('加载用户配置失败:', e);
+            }
+            
+            // 否则返回默认硬编码配置
+            return DEFAULT_NETEASE_CONFIG;
+        }
+        
+        function clearAccountConfig() {
+            try {
+                localStorage.removeItem(ACCOUNT_CONFIG_KEY);
+                return true;
+            } catch (e) {
+                console.warn('清除账号配置失败:', e);
+                return false;
+            }
+        }
+        
+        function updateAccountStatus() {
+            const statusEl = document.getElementById('account-status');
+            const config = loadAccountConfig();
+            
+            // 检查是否使用用户自定义配置
+            let isUserConfig = false;
+            try {
+                const userConfig = localStorage.getItem(ACCOUNT_CONFIG_KEY);
+                if (userConfig) {
+                    const parsed = JSON.parse(userConfig);
+                    if (parsed.enabled) {
+                        isUserConfig = true;
+                    }
+                }
+            } catch (e) {
+                // 忽略错误
+            }
+            
+            if (config && config.enabled && config.userId) {
+                const configType = isUserConfig ? '用户配置' : '默认配置';
+                statusEl.innerHTML = `<i class="fas fa-check-circle"></i><span>已配置: ${config.userId} (${configType})</span>`;
+                statusEl.classList.add('configured');
+            } else {
+                statusEl.innerHTML = `<i class="fas fa-user-circle"></i><span>未配置账号</span>`;
+                statusEl.classList.remove('configured');
+            }
+        }
+        
+        function initAccountSettings() {
+            const settingsPanel = document.getElementById('settings-panel');
+            const settingsBtn = document.getElementById('settings-btn');
+            const closeSettingsBtn = document.getElementById('close-settings-btn');
+            const saveBtn = document.getElementById('save-account-btn');
+            const clearBtn = document.getElementById('clear-account-btn');
+            const userIdInput = document.getElementById('netease-userid');
+            const cookieInput = document.getElementById('netease-cookie');
+            
+            // 打开/关闭设置面板
+            settingsBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                settingsPanel.classList.toggle('show');
+                if (settingsPanel.classList.contains('show')) {
+                    // 加载已保存的配置
+                    const config = loadAccountConfig();
+                    
+                    // 检查是否使用用户自定义配置
+                    let isUserConfig = false;
+                    try {
+                        const userConfig = localStorage.getItem(ACCOUNT_CONFIG_KEY);
+                        if (userConfig) {
+                            const parsed = JSON.parse(userConfig);
+                            if (parsed.enabled) {
+                                isUserConfig = true;
+                            }
+                        }
+                    } catch (e) {
+                        // 忽略错误
+                    }
+                    
+                    // 更新输入框（如果是用户配置，显示用户配置；否则显示默认配置）
+                    if (isUserConfig && config) {
+                        userIdInput.value = config.userId || '';
+                        cookieInput.value = config.cookie || '';
+                    } else {
+                        // 显示默认配置，但输入框为空，让用户知道可以自定义
+                        userIdInput.value = '';
+                        cookieInput.value = '';
+                    }
+                    
+                    // 更新提示信息
+                    const hintEl = document.getElementById('config-hint');
+                    const hintTextEl = document.getElementById('config-hint-text');
+                    if (hintEl && hintTextEl) {
+                        if (isUserConfig) {
+                            hintTextEl.textContent = '当前使用您的自定义配置。清除后将恢复使用默认配置。';
+                            hintEl.style.display = 'block';
+                        } else {
+                            hintTextEl.textContent = '当前使用默认配置，所有访问者共享。您可以保存自定义配置以覆盖默认设置。';
+                            hintEl.style.display = 'block';
+                        }
+                    }
+                    
+                    updateAccountStatus();
+                }
+            });
+            
+            closeSettingsBtn.addEventListener('click', () => {
+                settingsPanel.classList.remove('show');
+            });
+            
+            // 保存配置
+            saveBtn.addEventListener('click', () => {
+                const userId = userIdInput.value.trim();
+                const cookie = cookieInput.value.trim();
+                
+                if (!userId) {
+                    showToast('请输入用户ID', 'error');
+                    return;
+                }
+                
+                const success = saveAccountConfig({
+                    enabled: true,
+                    userId: userId,
+                    cookie: cookie
+                });
+                
+                if (success) {
+                    showToast('账号配置已保存');
+                    updateAccountStatus();
+                    
+                    // 更新提示信息
+                    const hintEl = document.getElementById('config-hint');
+                    const hintTextEl = document.getElementById('config-hint-text');
+                    if (hintEl && hintTextEl) {
+                        hintTextEl.textContent = '当前使用您的自定义配置。清除后将恢复使用默认配置。';
+                        hintEl.style.display = 'block';
+                    }
+                } else {
+                    showToast('保存失败', 'error');
+                }
+            });
+            
+            // 清除配置
+            clearBtn.addEventListener('click', () => {
+                clearAccountConfig();
+                userIdInput.value = '';
+                cookieInput.value = '';
+                updateAccountStatus();
+                
+                // 更新提示信息
+                const hintEl = document.getElementById('config-hint');
+                const hintTextEl = document.getElementById('config-hint-text');
+                if (hintEl && hintTextEl) {
+                    hintTextEl.textContent = '当前使用默认配置，所有访问者共享。您可以保存自定义配置以覆盖默认设置。';
+                    hintEl.style.display = 'block';
+                }
+                
+                showToast('账号配置已清除，已恢复使用默认配置');
+            });
+            
+            // 点击外部关闭面板
+            document.addEventListener('click', (e) => {
+                if (!settingsPanel.contains(e.target) && !settingsBtn.contains(e.target)) {
+                    settingsPanel.classList.remove('show');
+                }
+            });
+            
+            // 初始化状态显示
+            updateAccountStatus();
+        }
+
+        // ==========================================
+        // 运行时间和访问次数统计
+        // ==========================================
+        const STATS_KEY = 'siteStats';
+        
+        function initSiteStats() {
+            // 获取或初始化统计数据
+            let stats = getSiteStats();
+            
+            // 如果是新访问，增加访问次数
+            const lastVisit = sessionStorage.getItem('lastVisit');
+            if (!lastVisit) {
+                stats.visitCount++;
+                sessionStorage.setItem('lastVisit', Date.now().toString());
+                saveSiteStats(stats);
+            }
+            
+            // 更新显示
+            updateVisitCount(stats.visitCount);
+            
+            // 启动运行时间计时器
+            startRunTimeCounter(stats.startTime);
+        }
+        
+        function getSiteStats() {
+            try {
+                const data = localStorage.getItem(STATS_KEY);
+                if (data) {
+                    return JSON.parse(data);
+                }
+            } catch (e) { console.warn('读取统计数据失败:', e); }
+            
+            // 默认值：首次访问
+            const defaultStats = {
+                startTime: Date.now(),
+                visitCount: 0
+            };
+            saveSiteStats(defaultStats);
+            return defaultStats;
+        }
+        
+        function saveSiteStats(stats) {
+            try {
+                localStorage.setItem(STATS_KEY, JSON.stringify(stats));
+            } catch (e) { console.warn('保存统计数据失败:', e); }
+        }
+        
+        function updateVisitCount(count) {
+            if (visitCountEl) {
+                visitCountEl.textContent = count.toLocaleString();
+            }
+        }
+        
+        function startRunTimeCounter(startTime) {
+            function updateRunTime() {
+                const now = Date.now();
+                const diff = now - startTime;
+                
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+                
+                if (runTimeEl) {
+                    runTimeEl.textContent = `${days}天${hours}时${minutes}分${seconds}秒`;
+                }
+            }
+            
+            // 立即更新一次
+            updateRunTime();
+            // 每秒更新
+            setInterval(updateRunTime, 1000);
+        }
+
+        // ==========================================
+        // 覆盖页面（关于我、工具导航）
+        // ==========================================
+        const pageMessages = {
+            about: '啥也没写，等我飞升上界，再来寻求造化！',
+            tools: '工具箱正在打造中，敬请期待...'
+        };
+        
+        function showOverlayPage(pageType) {
+            const page = document.getElementById(`${pageType}-page`);
+            const textEl = document.getElementById(`${pageType}-text`);
+            if (!page || !textEl) return;
+            
+            const message = pageMessages[pageType] || '';
+            
+            // 显示页面
+            page.style.display = 'flex';
+            setTimeout(() => page.classList.add('show'), 10);
+            
+            // 清空文字
+            textEl.innerHTML = '';
+            
+            // 逐字淡入动画
+            message.split('').forEach((char, index) => {
+                const span = document.createElement('span');
+                span.textContent = char === ' ' ? '\u00A0' : char;
+                span.style.animationDelay = `${index * 0.1}s`;
+                textEl.appendChild(span);
+            });
+        }
+        
+        function hideOverlayPage(pageType) {
+            const page = document.getElementById(`${pageType}-page`);
+            const textEl = document.getElementById(`${pageType}-text`);
+            if (!page) return;
+            page.classList.remove('show');
+            setTimeout(() => {
+                page.style.display = 'none';
+                if (textEl) textEl.innerHTML = '';
+            }, 500);
+        }
+        
+        // 导航栏点击事件 - 在 DOMContentLoaded 后绑定
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.nav-item[data-page]').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    const page = item.dataset.page;
+                    if (page === 'about' || page === 'tools') {
+                        e.preventDefault();
+                        showOverlayPage(page);
+                    } else if (page === 'home') {
+                        e.preventDefault();
+                        hideOverlayPage('about');
+                        hideOverlayPage('tools');
+                    }
+                });
+            });
+        });
+
+        // 暴露给 HTML onclick
+        window.playTrack = playTrack;
+        window.hideOverlayPage = hideOverlayPage;
     </script>
-    <!-- !!! JavaScript Bundle End !!! -->
 </body>
+
 </html>

@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException, Query, UploadFile, File, Body, Cookie, Response, Depends
+from fastapi import FastAPI, HTTPException, Query, UploadFile, File, Body, Cookie, Response, Depends, Request
+from starlette.requests import Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse, FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -12,6 +13,8 @@ from contextlib import contextmanager
 import os
 import secrets
 import string
+import httpx
+from urllib.parse import urlencode
 
 # 管理员密码
 ADMIN_PASSWORD = "admin121"
@@ -44,13 +47,15 @@ app = FastAPI(
     ]
 )
 
-# 配置CORS
+# 配置CORS - 增强配置以支持音乐搜索
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["Content-Range", "X-Content-Range", "Content-Type", "Accept"],
+    max_age=3600,  # 预检请求缓存时间
 )
 
 # 数据库配置
@@ -216,6 +221,25 @@ def init_db():
         if 'owner_key' not in cat_columns:
             cursor.execute('ALTER TABLE categories ADD COLUMN owner_key TEXT')
         
+        # 创建网站统计表（单行表）
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS site_stats (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                visit_count INTEGER NOT NULL DEFAULT 0,
+                start_time TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        ''')
+        
+        # 初始化统计数据（如果不存在）
+        cursor.execute("SELECT id FROM site_stats WHERE id = 1")
+        if not cursor.fetchone():
+            now = datetime.now(ZoneInfo('Asia/Shanghai')).isoformat()
+            cursor.execute('''
+                INSERT INTO site_stats (id, visit_count, start_time, updated_at)
+                VALUES (1, 0, ?, ?)
+            ''', (now, now))
+        
         conn.commit()
 
 # ==================== 授权码辅助函数 ====================
@@ -329,9 +353,8 @@ def get_user_key_flexible(
     return actual_key
 
 # 启动时初始化数据库
-@app.on_event("startup")
-def startup_event():
-    init_db()
+# 直接初始化，避免生命周期事件问题
+init_db()
 
 # ==================== 管理员认证路由 ====================
 
@@ -1299,6 +1322,372 @@ def query_password(
             }
         }
 
+# ==================== 音乐搜索代理 ====================
+
+METING_API_URL = "https://api.injahow.cn/meting/"
+NETEASE_API_BASE = "https://music.163.com"
+NETEASE_SEARCH_API = f"{NETEASE_API_BASE}/api/search/get/web"
+NETEASE_SONG_DETAIL_API = f"{NETEASE_API_BASE}/api/song/detail"
+NETEASE_LYRIC_API = f"{NETEASE_API_BASE}/api/song/lyric"
+NETEASE_PLAY_URL_API = f"{NETEASE_API_BASE}/api/song/enhance/player/url"
+
+# 网易云 API 请求头
+NETEASE_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Referer": "https://music.163.com/",
+    "Origin": "https://music.163.com",
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Connection": "keep-alive"
+}
+
+def convert_netease_to_meting_format(song_data: dict) -> dict:
+    """将网易云 API 返回的歌曲数据转换为 Meting 格式"""
+    artists = song_data.get("artists", [])
+    artist_name = ", ".join([artist.get("name", "") for artist in artists]) if artists else ""
+    album = song_data.get("album", {})
+    
+    return {
+        "name": song_data.get("name", ""),
+        "artist": artist_name,
+        "url": "",  # 播放链接需要单独获取
+        "cover": album.get("picUrl", "") if album else "",
+        "lrc": "",  # 歌词需要单独获取
+        "id": str(song_data.get("id", "")),
+        "pic": album.get("picUrl", "") if album else "",
+        "album": album.get("name", "") if album else "",
+        "duration": song_data.get("duration", 0) // 1000 if song_data.get("duration") else 0
+    }
+
+async def get_netease_play_url(song_id: str) -> str:
+    """获取网易云歌曲播放链接"""
+    try:
+        # 网易云播放链接 API 可能需要 POST 请求，这里先尝试 GET
+        url = f"{NETEASE_PLAY_URL_API}?id={song_id}&ids=[{song_id}]&br=320000"
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, headers=NETEASE_HEADERS, timeout=5.0)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("code") == 200 and data.get("data"):
+                    songs = data.get("data", [])
+                    if songs and len(songs) > 0:
+                        play_url = songs[0].get("url", "")
+                        if play_url:
+                            return play_url
+    except httpx.TimeoutException:
+        # 超时不记录错误，避免日志过多
+        pass
+    except Exception:
+        # 播放链接获取失败不影响主流程
+        pass
+    return ""
+
+@app.get("/api/music/search", tags=["音乐搜索"])
+async def music_search(
+    keyword: str = Query(..., description="搜索关键词"),
+    limit: int = Query(30, description="返回数量限制"),
+    response: Response = None
+):
+    """代理音乐搜索请求，解决 CORS 问题"""
+    if response:
+        response.headers["Access-Control-Allow-Origin"] = "*"
+    
+    if not keyword or not keyword.strip():
+        return {"error": "搜索关键词不能为空", "code": 400, "results": []}
+    
+    try:
+        url = f"{METING_API_URL}?type=search&s={keyword}&server=netease"
+        async with httpx.AsyncClient() as client:
+            api_response = await client.get(url, timeout=8.0)
+            if api_response.status_code != 200:
+                return {"error": "音乐搜索服务暂时不可用", "code": 502, "results": []}
+            
+            data = api_response.json()
+            # 限制返回数量
+            return data[:limit] if isinstance(data, list) and len(data) > limit else data
+    except httpx.TimeoutException:
+        return {"error": "搜索请求超时", "code": 504, "results": []}
+    except Exception as e:
+        return {"error": f"搜索失败: {str(e)}", "code": 500, "results": []}
+
+@app.get("/api/music/playlist", tags=["音乐搜索"])
+async def music_playlist(
+    id: str = Query(..., description="歌单ID"),
+    limit: int = Query(50, description="返回数量限制"),
+    response: Response = None
+):
+    """获取歌单内容"""
+    if response:
+        response.headers["Access-Control-Allow-Origin"] = "*"
+    
+    try:
+        url = f"{METING_API_URL}?type=playlist&id={id}&server=netease"
+        async with httpx.AsyncClient() as client:
+            api_response = await client.get(url, timeout=8.0)
+            if api_response.status_code != 200:
+                return {"error": "获取歌单失败", "code": 502, "results": []}
+            
+            data = api_response.json()
+            return data[:limit] if isinstance(data, list) and len(data) > limit else data
+    except httpx.TimeoutException:
+        return {"error": "请求超时", "code": 504, "results": []}
+    except Exception as e:
+        return {"error": f"获取歌单失败: {str(e)}", "code": 500, "results": []}
+
+@app.get("/api/music/lyrics", tags=["音乐搜索"])
+async def music_lyrics(
+    id: str = Query(..., description="歌曲ID"),
+    server: str = Query("netease", description="服务器"),
+    response: Response = None
+):
+    """获取歌词内容，返回纯文本"""
+    if response:
+        response.headers["Access-Control-Allow-Origin"] = "*"
+    
+    try:
+        url = f"{METING_API_URL}?type=lrc&id={id}&server={server}"
+        async with httpx.AsyncClient() as client:
+            api_response = await client.get(url, timeout=8.0)
+            if api_response.status_code != 200:
+                return PlainTextResponse(content="", media_type="text/plain")
+            return PlainTextResponse(content=api_response.text, media_type="text/plain")
+    except httpx.TimeoutException:
+        return PlainTextResponse(content="", media_type="text/plain")
+    except Exception:
+        return PlainTextResponse(content="", media_type="text/plain")
+
+@app.get("/api/meting", tags=["音乐搜索"])
+async def meting_proxy(
+    request: Request,
+    response: Response
+):
+    """通用的 Meting API 代理，转发所有查询参数。搜索请求使用网易云官方 API"""
+    # 设置CORS响应头
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    
+    try:
+        # 获取所有查询参数
+        params = dict(request.query_params)
+        request_type = params.get("type", "")
+        server = params.get("server", "netease")
+        
+        print(f"[MUSIC-API] 收到请求: type={request_type}, server={server}")
+        
+        # 如果是搜索请求且使用网易云，使用官方 API
+        if request_type == "search" and server == "netease":
+            keyword = params.get("s", "").strip()
+            if not keyword:
+                return {"error": "搜索关键词不能为空", "code": 400, "results": []}
+            
+            print(f"[MUSIC-API] 搜索关键词: {keyword}")
+            
+            try:
+                # 使用网易云官方搜索 API
+                # 根据网易云API文档，需要添加一些参数
+                search_params = {
+                    "csrf_token": "",
+                    "hlpretag": "",
+                    "hlposttag": "",
+                    "s": keyword,
+                    "type": "1",
+                    "offset": "0",
+                    "total": "true",
+                    "limit": "30"
+                }
+                search_url = f"{NETEASE_SEARCH_API}?{urlencode(search_params)}"
+                
+                async with httpx.AsyncClient() as client:
+                    netease_response = await client.get(search_url, headers=NETEASE_HEADERS, timeout=8.0)
+                    print(f"[MUSIC-API] 网易云API响应: {netease_response.status_code}")
+                    
+                    if netease_response.status_code != 200:
+                        print(f"[MUSIC-API] 网易云API失败，尝试备用API")
+                        # 如果官方 API 失败，尝试备用 Meting API
+                        return await _try_meting_api(params, request_type)
+                    
+                    response_text = netease_response.text.strip()
+                    
+                    # 检查是否是 HTML（错误页面）
+                    if response_text.startswith("<!DOCTYPE") or response_text.startswith("<html") or response_text.startswith("<?xml"):
+                        print(f"[MUSIC-API] 收到HTML响应，使用备用API")
+                        # 尝试备用 Meting API
+                        return await _try_meting_api(params, request_type)
+                    
+                    # 解析 JSON 响应
+                    try:
+                        netease_data = netease_response.json()
+                        print(f"[MUSIC-API] JSON解析成功, code={netease_data.get('code')}")
+                        
+                        # 检查响应格式
+                        if netease_data.get("code") != 200:
+                            print(f"[MUSIC-API] 网易云返回错误代码，使用备用API")
+                            return await _try_meting_api(params, request_type)
+                        
+                        result = netease_data.get("result", {})
+                        songs = result.get("songs", [])
+                        
+                        if not songs:
+                            print(f"[MUSIC-API] 未找到结果")
+                            return []
+                        
+                        # 转换为 Meting 格式
+                        meting_songs = []
+                        for song in songs[:30]:  # 限制最多30首
+                            meting_song = convert_netease_to_meting_format(song)
+                            # 尝试获取播放链接（不阻塞，如果失败则留空）
+                            if meting_song["id"]:
+                                try:
+                                    play_url = await get_netease_play_url(meting_song["id"])
+                                    if play_url:
+                                        meting_song["url"] = play_url
+                                except Exception:
+                                    pass  # 静默失败，继续处理其他歌曲
+                            meting_songs.append(meting_song)
+                        
+                        print(f"[MUSIC-API] 成功返回 {len(meting_songs)} 首歌曲")
+                        return meting_songs
+                        
+                    except (ValueError, TypeError) as e:
+                        print(f"[MUSIC-API] JSON解析失败: {e}")
+                        # JSON 解析失败，尝试备用 API
+                        return await _try_meting_api(params, request_type)
+                        
+            except httpx.TimeoutException:
+                print(f"[MUSIC-API] 请求超时，使用备用API")
+                # 超时，尝试备用 API
+                return await _try_meting_api(params, request_type)
+            except httpx.RequestError as e:
+                print(f"[MUSIC-API] 网络错误: {str(e)}")
+                # 请求错误，尝试备用 API
+                return await _try_meting_api(params, request_type)
+        
+        # 如果是歌词请求且使用网易云
+        elif request_type == "lrc" and server == "netease":
+            song_id = params.get("id", "")
+            if not song_id:
+                return PlainTextResponse(content="", media_type="text/plain")
+            
+            try:
+                lyric_url = f"{NETEASE_LYRIC_API}?id={song_id}&lv=-1&kv=-1&tv=-1"
+                async with httpx.AsyncClient() as client:
+                    lyric_response = await client.get(lyric_url, headers=NETEASE_HEADERS, timeout=8.0)
+                    if lyric_response.status_code == 200:
+                        lyric_data = lyric_response.json()
+                        if lyric_data.get("code") == 200:
+                            lrc_text = lyric_data.get("lrc", {}).get("lyric", "")
+                            if lrc_text:
+                                return PlainTextResponse(content=lrc_text, media_type="text/plain")
+            except Exception:
+                pass  # 如果失败，继续使用 Meting API
+        
+        # 其他请求使用 Meting API（备用方案）
+        return await _try_meting_api(params, request_type)
+                
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[MUSIC-API] 意外错误: {str(e)}")
+        return {"error": f"音乐搜索服务暂时不可用", "code": 500, "results": []}
+
+async def _try_meting_api(params: dict, request_type: str):
+    """尝试使用 Meting API 作为备用方案"""
+    try:
+        query_string = urlencode(params)
+        url = f"{METING_API_URL}?{query_string}"
+        print(f"[MUSIC-API] 使用备用API")
+        
+        async with httpx.AsyncClient() as client:
+            fallback_response = await client.get(url, timeout=8.0)
+            
+            if fallback_response.status_code != 200:
+                print(f"[MUSIC-API] 备用API失败: {fallback_response.status_code}")
+                return {"error": "音乐搜索服务暂时不可用", "code": 502, "results": []}
+            
+            content_type = fallback_response.headers.get("content-type", "").lower()
+            response_text = fallback_response.text
+            
+            # 检查是否是 HTML（错误页面）
+            text_stripped = response_text.strip()
+            if text_stripped.startswith("<!DOCTYPE") or text_stripped.startswith("<html") or text_stripped.startswith("<?xml"):
+                print(f"[MUSIC-API] 备用API返回HTML错误")
+                return {"error": "音乐搜索服务暂时不可用", "code": 502, "results": []}
+            
+            # 如果是歌词请求，返回文本
+            if request_type == "lrc":
+                return PlainTextResponse(content=response_text, media_type="text/plain")
+            
+            # 对于其他请求，尝试解析为 JSON
+            try:
+                data = fallback_response.json()
+                print(f"[MUSIC-API] 备用API成功: {len(data) if isinstance(data, list) else 'object'}")
+                return data
+            except (ValueError, TypeError):
+                print(f"[MUSIC-API] 备用API JSON解析失败")
+                if "text" in content_type and "json" not in content_type:
+                    return PlainTextResponse(content=response_text, media_type=content_type or "text/plain")
+                return {"error": "音乐API返回了无效的响应", "code": 502, "results": []}
+                
+    except httpx.TimeoutException:
+        print(f"[MUSIC-API] 备用API超时")
+        return {"error": "音乐搜索请求超时，请稍后重试", "code": 504, "results": []}
+    except httpx.RequestError as e:
+        print(f"[MUSIC-API] 备用API网络错误: {str(e)}")
+        return {"error": "无法连接到音乐服务", "code": 502, "results": []}
+    except Exception as e:
+        print(f"[MUSIC-API] 备用API意外错误: {str(e)}")
+        return {"error": "音乐搜索服务暂时不可用", "code": 500, "results": []}
+
+# ==================== 网站统计 API ====================
+
+class SiteStatsResponse(BaseModel):
+    """网站统计响应模型"""
+    visitCount: int
+    startTime: str
+
+@app.get("/api/stats", response_model=SiteStatsResponse, tags=["网站统计"])
+def get_site_stats():
+    """获取网站统计数据（访问次数和运行起始时间）"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT visit_count, start_time FROM site_stats WHERE id = 1")
+        row = cursor.fetchone()
+        if row:
+            return {
+                "visitCount": row["visit_count"],
+                "startTime": row["start_time"]
+            }
+        # 如果没有数据，返回默认值
+        return {
+            "visitCount": 0,
+            "startTime": datetime.now(ZoneInfo('Asia/Shanghai')).isoformat()
+        }
+
+@app.post("/api/stats/visit", response_model=SiteStatsResponse, tags=["网站统计"])
+def record_visit():
+    """记录一次新访问并返回更新后的统计数据"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        now = datetime.now(ZoneInfo('Asia/Shanghai')).isoformat()
+        
+        # 原子性增加访问计数
+        cursor.execute('''
+            UPDATE site_stats 
+            SET visit_count = visit_count + 1, updated_at = ?
+            WHERE id = 1
+        ''', (now,))
+        conn.commit()
+        
+        # 返回更新后的数据
+        cursor.execute("SELECT visit_count, start_time FROM site_stats WHERE id = 1")
+        row = cursor.fetchone()
+        return {
+            "visitCount": row["visit_count"],
+            "startTime": row["start_time"]
+        }
+
 # SPA Route Handling
 FRONTEND_DIST = os.path.join(os.path.dirname(BASE_DIR), "frontend", "dist")
 
@@ -1322,4 +1711,4 @@ async def serve_spa(full_path: str):
     return "Frontend not built. Please run npm run build in frontend directory.", 404
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8998)
+    uvicorn.run(app, host="0.0.0.0", port=8999)

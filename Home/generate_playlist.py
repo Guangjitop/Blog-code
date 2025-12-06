@@ -19,7 +19,11 @@ SUPPORTED_FORMATS = {'mp3', 'flac', 'wav', 'ogg', 'aac', 'm4a', 'webm'}
 def parse_filename(filename: str) -> Dict[str, str]:
     """
     解析文件名，提取艺术家和歌曲名
-    支持格式: "艺术家 - 歌曲名.格式" 或 "歌曲名.格式"
+    支持格式: 
+    - "艺术家 - 歌曲名.格式"
+    - "歌曲名 - 艺术家.格式"
+    - "艺术家- 歌曲名.格式" (分隔符前无空格)
+    - "歌曲名.格式" (无分隔符)
     
     Args:
         filename: 音乐文件名
@@ -27,22 +31,53 @@ def parse_filename(filename: str) -> Dict[str, str]:
     Returns:
         包含 artist, title, format 的字典
     """
+    # 常见艺术家名列表（用于智能识别）
+    KNOWN_ARTISTS = [
+        '周杰伦', '华晨宇', '林俊杰', '陈奕迅', '邓紫棋', '薛之谦',
+        '李荣浩', '毛不易', '许嵩', '汪苏泷', '张杰', '王力宏',
+        '蔡依林', '孙燕姿', '梁静茹', '张韶涵', '田馥甄', '邓丽君',
+        'Jay Chou', 'JJ Lin', 'Eason Chan'
+    ]
+    
+    # 分隔符模式（按优先级排序）
+    SEPARATORS = [' - ', '- ', ' -', '-']
+    
     # 获取文件扩展名
     name, ext = os.path.splitext(filename)
     file_format = ext[1:].lower() if ext else ''
     
-    # 尝试解析 "艺术家 - 歌曲名" 格式
-    if ' - ' in name:
-        parts = name.split(' - ', 1)
-        artist = parts[0].strip()
-        title = parts[1].strip()
-    else:
-        artist = '未知艺术家'
-        title = name.strip()
+    # 尝试用各种分隔符解析
+    for sep in SEPARATORS:
+        if sep in name:
+            idx = name.find(sep)
+            if idx > 0 and idx < len(name) - len(sep):
+                left_part = name[:idx].strip()
+                right_part = name[idx + len(sep):].strip()
+                
+                if left_part and right_part:
+                    # 检查哪边是艺术家
+                    left_is_artist = any(artist.lower() in left_part.lower() for artist in KNOWN_ARTISTS)
+                    right_is_artist = any(artist.lower() in right_part.lower() for artist in KNOWN_ARTISTS)
+                    
+                    if right_is_artist and not left_is_artist:
+                        # 格式: 歌曲名 - 艺术家
+                        return {
+                            'artist': right_part,
+                            'title': left_part,
+                            'format': file_format
+                        }
+                    else:
+                        # 默认格式: 艺术家 - 歌曲名
+                        return {
+                            'artist': left_part,
+                            'title': right_part,
+                            'format': file_format
+                        }
     
+    # 无分隔符，整个名称作为歌曲名
     return {
-        'artist': artist,
-        'title': title,
+        'artist': '未知艺术家',
+        'title': name.strip(),
         'format': file_format
     }
 

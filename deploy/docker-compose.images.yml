@@ -1,0 +1,81 @@
+# ===========================================
+# Docker Compose - 使用预构建镜像
+# 适用于从镜像仓库拉取镜像部署
+# 使用方法: docker-compose -f docker-compose.images.yml -f docker-compose.prod.yml up -d
+# ===========================================
+
+version: '3.8'
+
+services:
+  # Nginx 反向代理 + 前端静态文件
+  nginx:
+    image: ${FRONTEND_IMAGE:-docker.io/username/blog-frontend:latest}
+    container_name: account-nginx
+    ports:
+      - "${APP_PORT:-80}:80"
+      - "${APP_SSL_PORT:-443}:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ../Home:/usr/share/nginx/html:ro
+      # SSL证书（HTTPS 已启用）
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+
+  # FastAPI 后端
+  backend:
+    image: ${BACKEND_IMAGE:-docker.io/username/blog-backend:latest}
+    container_name: account-backend
+    environment:
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin121}
+    volumes:
+      - ../backend/accounts.db:/app/accounts.db
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8998/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  db-data:
+    driver: local
+
