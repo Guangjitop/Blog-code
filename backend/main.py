@@ -1324,7 +1324,12 @@ def query_password(
 
 # ==================== 音乐搜索代理 ====================
 
-METING_API_URL = "https://api.injahow.cn/meting/"
+# 音乐API地址配置（支持环境变量）
+# 如果音乐服务在同一台服务器上，设置为本地地址
+# Docker容器内访问宿主机服务，使用 host.docker.internal 或服务器IP
+# 例如: http://host.docker.internal:3000/ 或 http://107.174.140.100:3000/
+# 注意：如果host.docker.internal不工作，直接使用服务器IP地址
+METING_API_URL = os.getenv("METING_API_URL", "http://107.174.140.100:3000/")
 NETEASE_API_BASE = "https://music.163.com"
 NETEASE_SEARCH_API = f"{NETEASE_API_BASE}/api/search/get/web"
 NETEASE_SONG_DETAIL_API = f"{NETEASE_API_BASE}/api/song/detail"
