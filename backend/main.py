@@ -1340,8 +1340,9 @@ def get_default_music_api_endpoints() -> str:
     is_docker = os.path.exists('/.dockerenv') or os.path.exists('/run/.containerenv')
     
     if is_docker:
-        # Docker环境：使用host.docker.internal访问宿主机服务
-        return "http://host.docker.internal:3000/,http://107.174.140.100:3000/"
+        # Docker环境：优先使用外部IP（同一服务器），然后尝试host.docker.internal
+        # 因为音乐API可能只监听外部IP，host.docker.internal可能返回错误页面
+        return "http://107.174.140.100:3000/,http://host.docker.internal:3000/"
     else:
         # 直接部署：使用localhost访问本地服务
         return "http://localhost:3000/,http://127.0.0.1:3000/,http://107.174.140.100:3000/"
