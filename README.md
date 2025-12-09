@@ -4,6 +4,20 @@
 
 ---
 
+## 📋 目录
+
+- [快速开始](#快速开始)
+- [功能特性](#功能特性)
+- [项目架构](#项目架构)
+- [Docker 部署指南](#docker-部署指南)
+- [SSL 证书申请](#ssl-证书申请)
+- [端口配置说明](#端口配置说明)
+- [从零开始部署](#从零开始部署)
+- [API 接口说明](#api-接口说明)
+- [开发环境](#开发环境)
+
+---
+
 ## 🚀 快速开始
 
 ### 一键启动（开发环境）
@@ -33,19 +47,22 @@ python -m http.server 8080
 | 后端 API | http://localhost:8000 | FastAPI 接口 |
 | API 文档 | http://localhost:8000/docs | Swagger UI |
 
-### 首页音乐播放器
-
-首页支持本地音乐播放，将音乐文件放入 `Home/musics/` 目录即可：
+### Docker 一键部署（生产环境）
 
 ```bash
-# 添加音乐后，运行脚本更新播放列表
-cd Home
-python generate_playlist.py
+# Linux/macOS
+cd deploy
+chmod +x scripts/*.sh
+./scripts/deploy-from-zero.sh
+
+# Windows
+cd deploy
+.\scripts\deploy-from-zero.ps1
 ```
 
-支持格式：MP3、FLAC、WAV、OGG、AAC、M4A、WEBM
-
-文件命名建议：`艺术家 - 歌曲名.格式`（如 `周杰伦 - 晴天.mp3`）
+部署后访问：
+- 生产环境: `https://blog.mytype.top`（通过域名，不暴露端口）
+- 本地测试: `http://localhost:8998`（仅内部访问）
 
 ---
 
@@ -57,504 +74,11 @@ python generate_playlist.py
 - ✅ 重置使用标记
 - ✅ 统计信息查询
 - ✅ SQLite持久化存储
-- ✅ 全部使用GET请求
-
-## 快速开始
-
-### 1. 安装依赖
-
-```bash
-pip install -r requirements.txt
-```
-
-### 2. 运行服务器
-
-```bash
-python main.py
-```
-
-服务器将在 `http://localhost:8000` 启动,数据库文件 `accounts.db` 会自动创建。
-
-### 3. 访问API文档
-
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
-
-## API接口说明
-
-### 📋 管理员接口
-
-#### 1. 获取所有账号
-```
-GET http://localhost:8000/admin/accounts
-```
-返回所有账号列表(包含使用状态)
-
-#### 2. 添加账号
-```
-GET http://localhost:8000/admin/accounts/add?email=test@example.com&password=123456
-```
-
-#### 3. 删除账号
-```
-GET http://localhost:8000/admin/accounts/delete?id=1
-```
-
-#### 4. 重置单个账号标记
-```
-GET http://localhost:8000/admin/accounts/reset?id=1
-```
-将指定账号的使用标记重置为未使用
-
-#### 5. 重置所有账号标记
-```
-GET http://localhost:8000/admin/accounts/reset-all
-```
-将所有账号的使用标记重置为未使用
-
-### 🔑 核心使用接口
-
-#### 获取未使用账号(自动标记)
-```
-GET http://localhost:8000/api/get-account
-```
-
-**重要**: 此接口会:
-1. 返回第一个未使用的账号(包含邮箱和密码)
-2. 自动将该账号标记为已使用
-3. 记录使用时间
-4. 下次调用时不会再返回该账号
-
-**返回示例**:
-```json
-{
-  "success": true,
-  "message": "获取账号成功",
-  "account": {
-    "id": 1,
-    "email": "quachthikimthuy5cbxh@nkh.edu.vn",
-    "password": "Phat3479",
-    "used_at": "2025-11-27T09:05:00"
-  }
-}
-```
-
-#### 获取统计信息
-```
-GET http://localhost:8000/api/stats
-```
-
-返回示例:
-```json
-{
-  "total_accounts": 10,
-  "used_accounts": 3,
-  "unused_accounts": 7,
-  "usage_rate": "30.0%"
-}
-```
-
-## 使用流程
-
-### 场景1: 管理员添加账号
-```bash
-# 添加账号1
-curl "http://localhost:8000/admin/accounts/add?email=user1@example.com&password=pass1"
-
-# 添加账号2
-curl "http://localhost:8000/admin/accounts/add?email=user2@example.com&password=pass2"
-
-# 查看所有账号
-curl "http://localhost:8000/admin/accounts"
-```
-
-### 场景2: 获取账号使用
-```bash
-# 第一次获取 - 返回账号1
-curl "http://localhost:8000/api/get-account"
-
-# 第二次获取 - 返回账号2(账号1已被标记)
-curl "http://localhost:8000/api/get-account"
-
-# 查看统计
-curl "http://localhost:8000/api/stats"
-```
-
-### 场景3: 重置标记
-```bash
-# 重置所有账号
-curl "http://localhost:8000/admin/accounts/reset-all"
-
-# 或重置单个账号
-curl "http://localhost:8000/admin/accounts/reset?id=1"
-```
-
-## 默认账号
-
-系统启动时会自动添加一个默认账号:
-- 邮箱: `quachthikimthuy5cbxh@nkh.edu.vn`
-- 密码: `Phat3479`
-- 状态: 未使用
-
-## 部署到服务器
-
-### Windows服务器
-
-#### 启动服务
-```bash
-# 方法1: 后台运行 (基础)
-start /B python main.py > app.log 2>&1
-
-# 方法2: 使用 waitress (推荐生产环境)
-pip install waitress
-waitress-serve --host=0.0.0.0 --port=8000 main:app
-
-# 方法3: 使用 PowerShell 后台运行
-Start-Process python -ArgumentList "main.py" -WindowStyle Hidden -RedirectStandardOutput "app.log" -RedirectStandardError "error.log"
-```
-
-#### 查看进程
-```bash
-# 查找 Python 进程
-tasklist | findstr python
-
-# 查看端口占用
-netstat -ano | findstr :8000
-```
-
-#### 停止服务
-```bash
-# 通过端口号查找并终止进程
-for /f "tokens=5" %a in ('netstat -ano ^| findstr :8000') do taskkill /F /PID %a
-
-# 或直接通过进程名终止
-taskkill /F /IM python.exe /FI "WINDOWTITLE eq main.py"
-
-# 通过PID终止 (替换 <PID> 为实际进程ID)
-taskkill /F /PID <PID>
-```
-
-#### 重启服务
-```bash
-# 先停止再启动
-taskkill /F /IM python.exe /FI "WINDOWTITLE eq main.py" && timeout /t 2 && start /B python main.py > app.log 2>&1
-```
-
-#### 查看日志
-```bash
-# 实时查看日志
-powershell Get-Content app.log -Wait -Tail 50
-
-# 查看最后100行
-powershell Get-Content app.log -Tail 100
-```
+- ✅ 授权码系统（多租户隔离）
+- ✅ 分类管理
+- ✅ 批量导入账号
 
 ---
-
-### Linux服务器
-
-#### 启动服务
-```bash
-# 方法1: 使用 nohup 后台运行
-nohup python main.py > app.log 2>&1 &
-
-
-
-
-```
-
-#### 手动进程管理
-```bash
-# 查看进程
-ps aux | grep "python main.py"
-
-# 查看端口占用
-lsof -i :8000
-netstat -tulpn | grep :8000
-
-# 停止服务 (通过进程名)
-pkill -f "python main.py"
-
-# 停止服务 (通过PID)
-kill -9 <PID>
-
-# 重启服务 (先停止再启动)
-pkill -f "python main.py" && sleep 2 && nohup python main.py > app.log 2>&1 &
-```
-
-#### 查看日志
-```bash
-# 实时查看日志
-tail -f app.log
-
-# 查看最后100行
-tail -n 100 app.log
-
-# 使用 less 分页查看
-less app.log
-
-# 查看 systemd 日志
-sudo journalctl -u account-api -n 100 -f
-```
-
----
-
-### 使用Docker
-
-#### Dockerfile
-```dockerfile
-FROM python:3.11-slim
-
-# 设置工作目录
-WORKDIR /app
-
-# 安装依赖
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# 复制应用文件
-COPY main.py .
-
-# 创建数据目录
-RUN mkdir -p /app/data
-
-# 暴露端口
-EXPOSE 8000
-
-# 启动命令
-CMD ["python", "main.py"]
-```
-
-#### 构建镜像
-```bash
-# 构建镜像
-docker build -t account-api:latest .
-
-# 查看镜像
-docker images | grep account-api
-```
-
-#### 启动容器
-```bash
-# 基础运行
-docker run -d \
-  --name account-api \
-  -p 8000:8000 \
-  -v $(pwd)/data:/app/data \
-  account-api:latest
-
-# 带重启策略运行
-docker run -d \
-  --name account-api \
-  --restart=always \
-  -p 8000:8000 \
-  -v $(pwd)/data:/app/data \
-  -e TZ=Asia/Shanghai \
-  account-api:latest
-```
-
-#### 容器管理
-```bash
-# 查看运行中的容器
-docker ps
-
-# 查看所有容器(包括停止的)
-docker ps -a
-
-# 停止容器
-docker stop account-api
-
-# 启动容器
-docker start account-api
-
-# 重启容器
-docker restart account-api
-
-# 删除容器 (需先停止)
-docker stop account-api
-docker rm account-api
-
-# 强制删除运行中的容器
-docker rm -f account-api
-```
-
-#### 查看日志
-```bash
-# 实时查看日志
-docker logs -f account-api
-
-# 查看最后100行
-docker logs --tail 100 account-api
-
-# 查看带时间戳的日志
-docker logs -t account-api
-```
-
-#### 进入容器调试
-```bash
-# 进入容器 shell
-docker exec -it account-api /bin/bash
-
-# 查看容器内进程
-docker exec account-api ps aux
-
-# 查看容器资源使用
-docker stats account-api
-```
-
-#### 清理资源
-```bash
-# 删除容器
-docker rm -f account-api
-
-# 删除镜像
-docker rmi account-api:latest
-
-# 清理未使用的镜像
-docker image prune -a
-
-# 清理所有未使用的资源
-docker system prune -a
-```
-
-#### Docker Compose (可选)
-创建 `docker-compose.yml`:
-```yaml
-version: '3.8'
-
-services:
-  account-api:
-    build: .
-    container_name: account-api
-    restart: always
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./data:/app/data
-    environment:
-      - TZ=Asia/Shanghai
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-```
-
-使用 Docker Compose:
-```bash
-# 启动服务
-docker-compose up -d
-
-# 停止服务
-docker-compose down
-
-# 重启服务
-docker-compose restart
-
-# 查看日志
-docker-compose logs -f
-
-# 重新构建并启动
-docker-compose up -d --build
-```
-
----
-
-### 生产环境建议
-
-#### 使用 Nginx 反向代理
-```nginx
-server {
-    listen 80;
-    server_name your-domain.com;
-
-    location / {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
-
-#### 日志轮转配置
-创建 `/etc/logrotate.d/account-api`:
-```
-/var/log/account-api/*.log {
-    daily
-    rotate 7
-    compress
-    delaycompress
-    notifempty
-    create 0640 www-data www-data
-    sharedscripts
-    postrotate
-        systemctl reload account-api > /dev/null 2>&1 || true
-    endscript
-}
-```
-
-#### 监控脚本
-```bash
-#!/bin/bash
-# check_service.sh - 服务健康检查
-
-SERVICE_URL="http://localhost:8000/api/stats"
-
-if curl -f -s "$SERVICE_URL" > /dev/null; then
-    echo "Service is running"
-    exit 0
-else
-    echo "Service is down, restarting..."
-    systemctl restart account-api
-    exit 1
-fi
-```
-
-添加到 crontab (每5分钟检查一次):
-```bash
-*/5 * * * * /path/to/check_service.sh >> /var/log/account-api/health-check.log 2>&1
-```
-
-## 数据库说明
-
-- 数据库文件: `accounts.db` (SQLite)
-- 表结构:
-  - `id`: 主键
-  - `email`: 邮箱(唯一)
-  - `password`: 密码
-  - `is_used`: 是否已使用(0/1)
-  - `created_at`: 创建时间
-  - `used_at`: 使用时间
-
-## 注意事项
-
-⚠️ **重要提示**:
-1. 密码以明文存储,请确保服务器安全
-2. 建议添加管理员认证机制
-3. 生产环境建议使用HTTPS
-4. 定期备份 `accounts.db` 文件
-
-## 技术栈
-
-### 后端 (Backend)
-- **框架**: FastAPI 0.104.1
-- **服务器**: Uvicorn (ASGI服务器)
-- **数据库**: SQLite (accounts.db)
-- **数据验证**: Pydantic 2.5.0 (支持邮箱验证)
-- **语言**: Python 3.x
-
-### 前端 (Frontend)
-- **框架**: React 19.2.0
-- **构建工具**: Vite 7.2.4
-- **语言**: TypeScript 5.9.3
-- **路由**: React Router DOM 7.9.6
-- **HTTP客户端**: Axios 1.13.2
-- **UI组件库**: Radix UI (Dialog, Label, Select, Slot, Tabs)
-- **样式**: Tailwind CSS 3.4.17
-- **图标**: Lucide React 0.555.0
-- **工具库**: clsx, tailwind-merge, class-variance-authority
 
 ## 项目架构
 
@@ -579,37 +103,23 @@ fi
 - 按分类统计账号使用情况
 - 导出账号和分类数据
 
-### 项目文件结构
+### 技术栈
 
-```
-backend/
-├── main.py                 # FastAPI主应用（包含所有API路由）
-├── accounts.db            # SQLite数据库
-├── requirements.txt       # Python依赖
-├── static/               # 静态HTML页面
-│   ├── admin.html        # 管理员界面
-│   ├── user.html         # 用户界面
-│   └── index.html        # 首页
-├── tests/                # 测试文件
-└── scripts/              # 部署脚本
+**后端 (Backend)**
+- **框架**: FastAPI 0.104.1
+- **服务器**: Uvicorn (ASGI服务器)
+- **数据库**: SQLite (accounts.db)
+- **数据验证**: Pydantic 2.5.0
+- **语言**: Python 3.x
 
-frontend/
-├── src/
-│   ├── pages/           # 页面组件
-│   │   ├── AdminDashboard.tsx    # 管理员仪表板
-│   │   ├── AdminLogin.tsx        # 管理员登录
-│   │   ├── UserDashboard.tsx     # 用户仪表板
-│   │   ├── UserLogin.tsx         # 用户登录
-│   │   └── LandingPage.tsx       # 落地页
-│   ├── components/ui/   # UI组件（按钮、卡片、对话框等）
-│   ├── contexts/        # React上下文（主题、Toast）
-│   └── lib/            # 工具库（axios配置、utils）
-├── dist/               # 构建输出
-└── package.json        # 前端依赖
-
-.kiro/specs/           # 功能规格文档
-docs/                  # 项目文档（中文）
-```
+**前端 (Frontend)**
+- **框架**: React 19.2.0
+- **构建工具**: Vite 7.2.4
+- **语言**: TypeScript 5.9.3
+- **路由**: React Router DOM 7.9.6
+- **HTTP客户端**: Axios 1.13.2
+- **UI组件库**: Radix UI
+- **样式**: Tailwind CSS 3.4.17
 
 ### 数据库表结构
 
@@ -637,16 +147,657 @@ docs/                  # 项目文档（中文）
 - `created_at`: 创建时间
 - `used_at`: 使用时间
 
-### API架构
+---
 
-- **管理员API**: `/api/admin/*` - 需要管理员密码认证（Cookie: admin_token）
-- **用户API**: `/api/admin/*` (带授权码) - 需要授权码验证（Query参数或Cookie）
-- **认证API**: `/api/admin/login`, `/api/user/login`
-- **统计API**: `/api/stats/*`
-- **备份API**: `/api/backup/*`
+## Docker 部署指南
+
+### 系统要求
+
+| 软件 | 最低版本 | 说明 |
+|------|----------|------|
+| Docker | 20.10+ | 容器运行时 |
+| Docker Compose | 2.0+ | 容器编排工具 |
+
+### 快速启动
+
+```bash
+# Linux/macOS
+cd deploy
+chmod +x scripts/*.sh
+./scripts/start.sh
+
+# Windows
+cd deploy
+scripts\start.cmd
+```
+
+### Docker Compose 常用命令
+
+```bash
+# 查看运行状态
+docker-compose ps
+
+# 查看日志
+docker-compose logs -f
+
+# 重启服务
+docker-compose restart
+
+# 停止服务
+docker-compose down
+
+# 重新构建并启动
+docker-compose up -d --build
+
+# 查看特定服务日志
+docker-compose logs -f backend
+docker-compose logs -f nginx
+```
+
+### 容器管理
+
+```bash
+# 进入容器调试
+docker exec -it account-backend /bin/bash
+docker exec -it account-nginx /bin/sh
+
+# 查看容器资源使用
+docker stats
+
+# 清理未使用的资源
+docker system prune -a
+```
+
+---
+
+## SSL 证书申请
+
+本文档说明如何为 `blog.mytype.top` 配置免费的 Let's Encrypt SSL 证书。
+
+### 前置要求
+
+#### 1. 域名解析
+
+确保域名 `blog.mytype.top` 已正确解析到服务器 IP 地址：
+
+```bash
+# 检查域名解析
+nslookup blog.mytype.top
+# 或
+dig blog.mytype.top
+```
+
+#### 2. 安装 Certbot
+
+**Ubuntu/Debian:**
+```bash
+sudo apt update
+sudo apt install certbot -y
+```
+
+**CentOS/RHEL:**
+```bash
+sudo yum install certbot -y
+```
+
+#### 3. 端口开放
+
+确保服务器防火墙已开放 80 和 443 端口：
+
+```bash
+# UFW (Ubuntu/Debian)
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+
+# firewalld (CentOS/RHEL)
+sudo firewall-cmd --permanent --add-service=http
+sudo firewall-cmd --permanent --add-service=https
+sudo firewall-cmd --reload
+```
+
+### 证书申请方法
+
+#### 方法一：使用部署脚本自动申请（推荐）
+
+部署脚本会自动检测端口占用情况，并选择合适的证书申请方式：
+
+```bash
+cd deploy
+chmod +x scripts/*.sh
+./scripts/deploy-from-zero.sh
+```
+
+脚本会自动：
+- 检查 certbot 是否安装
+- 根据端口占用情况选择申请方式
+- 将证书复制到正确位置
+- 配置 Nginx
+
+#### 方法二：使用提供的证书申请脚本
+
+```bash
+# 1. 修改脚本中的邮箱地址
+vim deploy/scripts/get-ssl-cert.sh
+# 将 EMAIL="your-email@example.com" 修改为您的真实邮箱
+
+# 2. 运行证书申请脚本
+cd deploy
+./scripts/get-ssl-cert.sh
+```
+
+脚本会自动：
+- 检查 certbot 是否安装
+- 使用 standalone 模式申请证书（需要临时占用 80 端口）
+- 将证书复制到 `deploy/ssl/` 目录
+- 重启 Nginx 容器
+
+#### 方法三：手动申请（使用 webroot 模式）
+
+如果您的服务已经在运行，可以使用 webroot 模式，无需停止服务：
+
+```bash
+# 进入项目目录
+cd deploy
+
+# 申请证书
+sudo certbot certonly \
+    --webroot \
+    -w ../Home \
+    -d blog.mytype.top \
+    --email your-email@example.com \
+    --agree-tos \
+    --non-interactive
+
+# 复制证书到项目目录（方案A：容器内使用）
+sudo cp /etc/letsencrypt/live/blog.mytype.top/fullchain.pem ssl/
+sudo cp /etc/letsencrypt/live/blog.mytype.top/privkey.pem ssl/
+sudo chown -R $(whoami):$(whoami) ssl/
+
+# 或保留在系统目录（方案B：宿主机Nginx使用）
+# 证书已存储在 /etc/letsencrypt/live/blog.mytype.top/
+
+# 重启 Nginx
+docker-compose restart nginx
+# 或重启宿主机Nginx（方案B）
+sudo systemctl restart nginx
+```
+
+### 自动续期
+
+Let's Encrypt 证书有效期为 90 天，需要定期续期。建议配置自动续期。
+
+#### 配置自动续期
+
+1. **测试续期脚本**
+
+```bash
+cd deploy
+./scripts/renew-ssl-cert.sh
+```
+
+2. **添加到 crontab**
+
+编辑 crontab：
+```bash
+crontab -e
+```
+
+添加以下行（每天凌晨 3 点检查并续期）：
+```cron
+0 3 * * * /path/to/Blog-code/deploy/scripts/renew-ssl-cert.sh >> /var/log/ssl-renew.log 2>&1
+```
+
+或者使用 certbot 自带的续期命令：
+```cron
+0 3 * * * certbot renew --quiet --deploy-hook "cd /path/to/Blog-code/deploy && docker-compose restart nginx"
+```
+
+3. **测试自动续期**
+
+```bash
+# 测试续期（不会真正续期，只是检查）
+sudo certbot renew --dry-run
+```
+
+### 验证配置
+
+#### 1. 检查证书文件
+
+```bash
+# 方案A：容器内使用
+ls -lh deploy/ssl/
+# 应该看到：fullchain.pem 和 privkey.pem
+
+# 方案B：宿主机使用
+ls -lh /etc/letsencrypt/live/blog.mytype.top/
+```
+
+#### 2. 检查 Nginx 配置
+
+```bash
+# 容器内Nginx（方案A）
+cd deploy
+docker-compose exec nginx nginx -t
+
+# 宿主机Nginx（方案B）
+sudo nginx -t
+```
+
+#### 3. 访问网站
+
+在浏览器中访问：
+- HTTP: `http://blog.mytype.top` （应该自动重定向到 HTTPS）
+- HTTPS: `https://blog.mytype.top`
+
+#### 4. 检查 SSL 证书
+
+使用在线工具检查：
+- [SSL Labs SSL Test](https://www.ssllabs.com/ssltest/)
+- [SSL Checker](https://www.sslshopper.com/ssl-checker.html)
+
+或使用命令行：
+```bash
+openssl s_client -connect blog.mytype.top:443 -servername blog.mytype.top < /dev/null 2>/dev/null | openssl x509 -noout -dates
+```
+
+### 故障排查
+
+详细故障排查请参考：[SSL证书配置说明](deploy/SSL证书配置说明.md)
+
+---
+
+## 端口配置说明
+
+### 端口映射架构
+
+本项目采用 Docker Compose 部署，端口配置如下：
+
+| 服务 | 容器内端口 | 宿主机端口 | 说明 |
+|------|-----------|-----------|------|
+| 后端 API | 8998 | 8999 | 仅内部访问，不对外暴露 |
+| 前端 Nginx | 80 | 8998 | 仅内部访问，不对外暴露 |
+| 用户访问 | - | 80/443 | 通过域名访问，不暴露端口号 |
+
+**重要**：用户通过域名 `blog.mytype.top` 访问，地址栏不会显示端口号。
+
+### 端口占用处理方案
+
+如果 80/443 端口被占用（如已有 Nginx 服务），提供两种部署方案：
+
+#### 方案A：直接使用 80/443（端口可用时）
+
+**适用场景**：80/443 端口未被占用
+
+**配置**：
+- Docker 容器直接监听 80/443 端口
+- SSL 证书配置在容器内 Nginx
+- 证书存储在 `deploy/ssl/` 目录
+
+**端口映射**：
+```yaml
+nginx:
+  ports:
+    - "80:80"    # HTTP
+    - "443:443"  # HTTPS
+```
+
+#### 方案B：使用现有 Nginx 反向代理（端口被占用时）
+
+**适用场景**：80/443 端口被系统 Nginx 或其他服务占用
+
+**配置**：
+- Docker 容器使用 8998 端口（前端）和 8999 端口（后端）
+- 宿主机上的 Nginx 反向代理到 `localhost:8998`
+- SSL 证书配置在宿主机 Nginx
+- 证书存储在 `/etc/letsencrypt/` 目录
+- 用户仍通过 `blog.mytype.top` 访问，不暴露端口
+
+**端口映射**：
+```yaml
+nginx:
+  ports:
+    - "8998:80"  # 仅内部访问
+backend:
+  ports:
+    - "8999:8998"  # 仅内部访问
+```
+
+**宿主机 Nginx 配置**：
+部署脚本会自动生成配置模板 `deploy/nginx/host-nginx-proxy.conf.example`，需要手动复制到宿主机 Nginx 配置目录：
+
+```bash
+# 复制配置模板
+sudo cp deploy/nginx/host-nginx-proxy.conf.example /etc/nginx/sites-available/blog.mytype.top
+# 或
+sudo cp deploy/nginx/host-nginx-proxy.conf.example /etc/nginx/conf.d/blog.mytype.top.conf
+
+# 创建符号链接（如果使用 sites-available）
+sudo ln -s /etc/nginx/sites-available/blog.mytype.top /etc/nginx/sites-enabled/
+
+# 测试配置
+sudo nginx -t
+
+# 重新加载配置
+sudo systemctl reload nginx
+```
+
+### 自动检测和选择
+
+部署脚本 `deploy-from-zero.sh` 会自动：
+1. 检查 80/443 端口占用情况
+2. 根据端口占用情况自动选择方案 A 或方案 B
+3. 生成相应的配置文件
+4. 提供清晰的部署说明
+
+---
+
+## 从零开始部署
+
+### 一键部署脚本
+
+项目提供了完整的从零部署脚本，自动处理所有配置：
+
+#### Linux/macOS
+
+```bash
+cd deploy
+chmod +x scripts/*.sh
+./scripts/deploy-from-zero.sh
+```
+
+#### Windows
+
+```powershell
+cd deploy
+.\scripts\deploy-from-zero.ps1
+```
+
+### 部署脚本功能
+
+部署脚本会自动执行以下步骤：
+
+1. **环境检查**
+   - 检查 Docker 和 Docker Compose 是否安装
+   - 检查必要的系统工具
+
+2. **端口检查**
+   - 检查 80、443、8998、8999 端口占用情况
+   - 自动选择部署方案（A 或 B）
+
+3. **SSL 证书申请**
+   - 检查 certbot 是否安装
+   - 根据部署方案选择证书申请方式
+   - 自动申请 Let's Encrypt 证书
+
+4. **配置文件生成**
+   - 自动生成 `.env` 文件（如果不存在）
+   - 根据端口占用情况调整 Docker Compose 配置
+   - 生成宿主机 Nginx 配置模板（方案 B）
+
+5. **服务启动**
+   - 构建 Docker 镜像
+   - 启动所有服务
+   - 健康检查
+
+6. **部署验证**
+   - 检查服务是否正常运行
+   - 提供访问地址和后续步骤说明
+
+### 手动部署步骤
+
+如果不想使用自动脚本，可以按照以下步骤手动部署：
+
+#### 1. 安装 Docker 和 Docker Compose
+
+**Linux (Ubuntu/Debian):**
+```bash
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER
+sudo apt install docker-compose-plugin -y
+```
+
+**Windows/macOS:**
+下载并安装 [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+
+#### 2. 克隆项目
+
+```bash
+git clone <repository-url>
+cd Blog-code
+```
+
+#### 3. 检查端口占用
+
+```bash
+# 检查 80/443 端口
+sudo lsof -i :80
+sudo lsof -i :443
+
+# 或使用 netstat
+sudo netstat -tulpn | grep -E ':(80|443) '
+```
+
+#### 4. 配置环境变量
+
+```bash
+cd deploy
+cp .env.example .env
+vim .env  # 根据需要修改配置
+```
+
+#### 5. 申请 SSL 证书
+
+参考 [SSL 证书申请](#ssl-证书申请) 章节。
+
+#### 6. 启动服务
+
+**方案A（80/443 可用）：**
+```bash
+docker-compose up -d --build
+```
+
+**方案B（80/443 被占用）：**
+```bash
+# 1. 启动 Docker 服务（使用 8998 端口）
+docker-compose up -d --build
+
+# 2. 配置宿主机 Nginx 反向代理
+sudo cp nginx/host-nginx-proxy.conf.example /etc/nginx/conf.d/blog.mytype.top.conf
+sudo vim /etc/nginx/conf.d/blog.mytype.top.conf  # 根据需要修改
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+#### 7. 验证部署
+
+```bash
+# 检查容器状态
+docker-compose ps
+
+# 查看日志
+docker-compose logs -f
+
+# 测试访问
+curl http://localhost:8998
+# 或
+curl https://blog.mytype.top
+```
+
+### 部署后配置
+
+#### 1. 配置自动续期
+
+参考 [SSL 证书申请 - 自动续期](#自动续期) 章节。
+
+#### 2. 配置防火墙
+
+```bash
+# UFW (Ubuntu/Debian)
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw allow 8998/tcp  # 方案B需要
+sudo ufw allow 8999/tcp  # 方案B需要
+
+# firewalld (CentOS/RHEL)
+sudo firewall-cmd --permanent --add-service=http
+sudo firewall-cmd --permanent --add-service=https
+sudo firewall-cmd --reload
+```
+
+#### 3. 配置域名解析
+
+确保域名 `blog.mytype.top` 的 A 记录指向服务器 IP 地址。
+
+#### 4. 备份数据
+
+```bash
+# 备份数据库
+cp backend/accounts.db backup/accounts_$(date +%Y%m%d).db
+
+# 备份 SSL 证书（方案A）
+tar -czf ssl-backup-$(date +%Y%m%d).tar.gz deploy/ssl/
+```
+
+---
+
+## API 接口说明
 
 ### 认证机制
 
 1. **管理员认证**: Cookie-based (admin_token = "admin121")
 2. **用户认证**: Cookie-based (user_key) 或 Query参数 (key)
 3. **多租户隔离**: 通过owner_key字段实现数据隔离，每个授权码只能访问自己的数据
+
+### 管理员接口
+
+#### 获取所有账号
+```
+GET /api/admin/accounts
+```
+
+#### 添加账号
+```
+GET /api/admin/accounts/add?email=test@example.com&password=123456
+```
+
+#### 删除账号
+```
+GET /api/admin/accounts/delete?id=1
+```
+
+#### 重置账号标记
+```
+GET /api/admin/accounts/reset?id=1
+GET /api/admin/accounts/reset-all
+```
+
+### 核心使用接口
+
+#### 获取未使用账号(自动标记)
+```
+GET /api/get-account
+```
+
+**重要**: 此接口会:
+1. 返回第一个未使用的账号(包含邮箱和密码)
+2. 自动将该账号标记为已使用
+3. 记录使用时间
+4. 下次调用时不会再返回该账号
+
+**返回示例**:
+```json
+{
+  "success": true,
+  "message": "获取账号成功",
+  "account": {
+    "id": 1,
+    "email": "user@example.com",
+    "password": "password123",
+    "used_at": "2025-01-27T09:05:00"
+  }
+}
+```
+
+#### 获取统计信息
+```
+GET /api/stats
+```
+
+**返回示例**:
+```json
+{
+  "total_accounts": 10,
+  "used_accounts": 3,
+  "unused_accounts": 7,
+  "usage_rate": "30.0%"
+}
+```
+
+### API 文档
+
+访问 Swagger UI 查看完整的 API 文档：
+- 开发环境: http://localhost:8000/docs
+- 生产环境: https://blog.mytype.top/docs
+
+---
+
+## 开发环境
+
+### 本地开发启动
+
+```bash
+# 1. 启动后端
+cd backend
+pip install -r requirements.txt
+python main.py
+
+# 2. 启动前端
+cd frontend
+npm install
+npm run dev
+
+# 3. 访问
+# 前端: http://localhost:5173
+# 后端API: http://localhost:8000
+# API文档: http://localhost:8000/docs
+```
+
+### 首页音乐播放器
+
+首页支持本地音乐播放，将音乐文件放入 `Home/musics/` 目录即可：
+
+```bash
+# 添加音乐后，运行脚本更新播放列表
+cd Home
+python generate_playlist.py
+```
+
+支持格式：MP3、FLAC、WAV、OGG、AAC、M4A、WEBM
+
+文件命名建议：`艺术家 - 歌曲名.格式`（如 `周杰伦 - 晴天.mp3`）
+
+---
+
+## 注意事项
+
+⚠️ **重要提示**:
+1. 密码以明文存储，请确保服务器安全
+2. 生产环境建议使用 HTTPS
+3. 定期备份 `accounts.db` 文件
+4. 定期备份 SSL 证书文件
+5. 配置自动续期，避免证书过期
+
+---
+
+## 相关文档
+
+- [Docker 部署详细指南](deploy/README.md)
+- [SSL 证书配置说明](deploy/SSL证书配置说明.md)
+- [API 文档](backend/API_DOC.md)
+- [音乐 API 指南](backend/MUSIC_API_GUIDE.md)
+
+---
+
+## 更新日志
+
+- 2025-01-XX: 添加 Docker 部署支持、SSL 证书自动申请、端口占用自动处理
