@@ -1359,6 +1359,11 @@ NETEASE_HEADERS = {
     "Connection": "keep-alive"
 }
 
+# 伪造的中国大陆IP，避免网易云接口的地区限制，可通过环境变量覆盖
+NETEASE_FAKE_IP = os.getenv("NETEASE_FAKE_IP", "59.111.239.63")
+# 是否启用自建 NeteaseCloudMusicApi 作为兜底
+ENABLE_NETEASE_API_FALLBACK = os.getenv("ENABLE_NETEASE_API_FALLBACK", "0") == "1"
+
 # 网易云音乐Cookie配置
 def get_default_netease_api_base() -> str:
     """根据运行环境返回默认的 NeteaseCloudMusicApi 地址"""
@@ -1498,6 +1503,22 @@ def format_cookies_for_request(cookies: dict) -> str:
         return ""
     return "; ".join([f"{k}={v}" for k, v in cookies.items()])
 
+def build_netease_headers(include_cookie: bool = True) -> dict:
+    """
+    构建网易云请求头，自动加入伪造IP与可用的会员Cookie。
+    伪造IP用于绕过海外/无IP限制，防止 460/505 等错误。
+    """
+    headers = NETEASE_HEADERS.copy()
+    headers["X-Real-IP"] = NETEASE_FAKE_IP
+    headers["X-Forwarded-For"] = NETEASE_FAKE_IP
+
+    if include_cookie:
+        cookies = get_cookies()
+        if cookies:
+            headers["Cookie"] = format_cookies_for_request(cookies)
+            print(f"[MUSIC-API] 使用Cookie: {list(cookies.keys())}")
+    return headers
+
 def validate_cookies() -> bool:
     """验证Cookie是否有效"""
     cookies = get_cookies()
@@ -1518,6 +1539,175 @@ def validate_cookies() -> bool:
     return True
 
 # ==================== 音乐API辅助函数 ====================
+
+async def search_netease_official(keyword: str, limit: int = 30, include_detail: bool = True):
+    """
+    调用网易云官方 Web API 进行搜索，并转换为 Meting 兼容格式。
+    返回列表表示成功；返回字典表示错误。
+    """
+    print(f"[MUSIC-API] 官方搜索关键词: {keyword}, limit={limit}")
+
+    search_params = {
+        "csrf_token": "",
+        "hlpretag": "",
+        "hlposttag": "",
+        "s": keyword,
+        "type": "1",
+        "offset": "0",
+        "total": "true",
+        "limit": str(limit)
+    }
+    search_url = f"{NETEASE_SEARCH_API}?{urlencode(search_params)}"
+    headers = build_netease_headers()
+
+    try:
+        timeout = httpx.Timeout(15.0, connect=10.0)
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+            search_resp = await client.get(search_url, headers=headers)
+            print(f"[MUSIC-API] 官方搜索状态: {search_resp.status_code}")
+
+            if search_resp.status_code != 200:
+                return {
+                    "error": f"网易云搜索失败: HTTP {search_resp.status_code}",
+                    "code": search_resp.status_code,
+                    "results": [],
+                    "details": {"url": search_url}
+                }
+
+            try:
+                search_data = search_resp.json()
+            except (ValueError, TypeError) as e:
+                snippet = search_resp.text[:200] if search_resp.text else ""
+                print(f"[MUSIC-API] 官方搜索JSON解析失败: {e}")
+                return {
+                    "error": "网易云响应解析失败",
+                    "code": 502,
+                    "results": [],
+                    "details": {
+                        "parse_error": str(e),
+                        "snippet": snippet
+                    }
+                }
+
+            if search_data.get("code") != 200:
+                return {
+                    "error": f"网易云API返回错误 {search_data.get('code')}",
+                    "code": search_data.get("code", 500),
+                    "results": [],
+                    "details": {"netease_code": search_data.get("code")}
+                }
+
+            songs = (search_data.get("result") or {}).get("songs", [])
+            if not songs:
+                print("[MUSIC-API] 未找到结果")
+                return []
+
+            detail_map = {}
+            if include_detail:
+                song_ids = [str(song.get("id")) for song in songs[:limit] if song.get("id")]
+                if song_ids:
+                    ids_param = "[" + ",".join(song_ids) + "]"
+                    detail_params = {"ids": ids_param}
+                    detail_url = f"{NETEASE_SONG_DETAIL_API}?{urlencode(detail_params)}"
+                    try:
+                        detail_timeout = httpx.Timeout(10.0, connect=5.0)
+                        detail_resp = await client.get(detail_url, headers=headers, timeout=detail_timeout)
+                        print(f"[MUSIC-API] 歌曲详情响应: {detail_resp.status_code}")
+                        if detail_resp.status_code == 200:
+                            detail_data = detail_resp.json()
+                            detail_songs = detail_data.get("songs", [])
+                            detail_map = {song.get("id"): song for song in detail_songs if song.get("id")}
+                            print(f"[MUSIC-API] 成功获取 {len(detail_map)} 首歌曲详情")
+                    except Exception as detail_error:
+                        print(f"[MUSIC-API] 获取歌曲详情失败（继续使用搜索结果）: {detail_error}")
+
+            meting_songs = []
+            for song in songs[:limit]:
+                song_id = song.get("id")
+                final_song = detail_map.get(song_id, song)
+                meting_song = convert_netease_to_meting_format(final_song)
+                meting_songs.append(meting_song)
+
+            print(f"[MUSIC-API] 官方搜索成功返回 {len(meting_songs)} 首歌曲")
+            return meting_songs
+
+    except httpx.TimeoutException:
+        print("[MUSIC-API] 官方搜索超时")
+        return {"error": "搜索请求超时", "code": 504, "results": []}
+    except httpx.RequestError as e:
+        print(f"[MUSIC-API] 官方搜索网络错误: {e}")
+        return {"error": f"网络错误: {str(e)}", "code": 500, "results": []}
+    except Exception as e:
+        print(f"[MUSIC-API] 官方搜索异常: {e}")
+        return {"error": f"搜索失败: {str(e)}", "code": 500, "results": []}
+
+async def search_netease_cloud_api(keyword: str, limit: int = 30):
+    """
+    使用自建/代理的 NeteaseCloudMusicApi 进行兜底搜索。
+    未启用兜底时返回 None。
+    """
+    if not ENABLE_NETEASE_API_FALLBACK:
+        return None
+
+    search_params = {
+        "keywords": keyword,
+        "limit": limit
+    }
+    search_url = f"{NETEASE_API_BASE}/cloudsearch?{urlencode(search_params)}"
+    headers = build_netease_headers()
+
+    try:
+        timeout = httpx.Timeout(10.0, connect=5.0)
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+            resp = await client.get(search_url, headers=headers)
+            print(f"[MUSIC-API] 兜底搜索状态: {resp.status_code}, url={search_url}")
+
+            if resp.status_code != 200:
+                return {
+                    "error": f"兜底搜索失败: HTTP {resp.status_code}",
+                    "code": resp.status_code,
+                    "results": [],
+                    "details": {"url": search_url}
+                }
+
+            try:
+                data = resp.json()
+            except (ValueError, TypeError) as e:
+                snippet = resp.text[:200] if resp.text else ""
+                print(f"[MUSIC-API] 兜底搜索JSON解析失败: {e}")
+                return {
+                    "error": "兜底响应解析失败",
+                    "code": 502,
+                    "results": [],
+                    "details": {"parse_error": str(e), "snippet": snippet}
+                }
+
+            if data.get("code") != 200:
+                return {
+                    "error": f"兜底API返回错误 {data.get('code')}",
+                    "code": data.get("code", 500),
+                    "results": [],
+                    "details": {"netease_code": data.get("code")}
+                }
+
+            songs = (data.get("result") or {}).get("songs", [])
+            if not songs:
+                print("[MUSIC-API] 兜底搜索未找到结果")
+                return []
+
+            meting_songs = [convert_netease_to_meting_format(song) for song in songs[:limit]]
+            print(f"[MUSIC-API] 兜底搜索成功返回 {len(meting_songs)} 首歌曲")
+            return meting_songs
+
+    except httpx.TimeoutException:
+        print("[MUSIC-API] 兜底搜索超时")
+        return {"error": "兜底搜索请求超时", "code": 504, "results": []}
+    except httpx.RequestError as e:
+        print(f"[MUSIC-API] 兜底搜索网络错误: {e}")
+        return {"error": f"兜底搜索网络错误: {str(e)}", "code": 500, "results": []}
+    except Exception as e:
+        print(f"[MUSIC-API] 兜底搜索异常: {e}")
+        return {"error": f"兜底搜索失败: {str(e)}", "code": 500, "results": []}
 
 # DEPRECATED: try_music_api_with_fallback 函数已废弃
 # 现在直接使用官方网易云API，不再需要多个端点的fallback机制
@@ -1627,67 +1817,23 @@ async def music_search(
         return {"error": "搜索关键词不能为空", "code": 400, "results": []}
     
     try:
-        print(f"[MUSIC-API] 搜索关键词: {keyword}")
-        
-        # 使用网易云官方搜索 API
-        search_params = {
-            "csrf_token": "",
-            "hlpretag": "",
-            "hlposttag": "",
-            "s": keyword,
-            "type": "1",  # 1表示单曲
-            "offset": "0",
-            "total": "true",
-            "limit": str(limit)
-        }
-        search_url = f"{NETEASE_SEARCH_API}?{urlencode(search_params)}"
+        # 主路径：官方 Web API
+        primary_result = await search_netease_official(keyword.strip(), limit=limit, include_detail=False)
+        if isinstance(primary_result, list):
+            return primary_result
 
-        # 构建请求头（携带Cookie以支持会员搜索）
-        headers = NETEASE_HEADERS.copy()
-        cookies = get_cookies()
-        if cookies:
-            headers["Cookie"] = format_cookies_for_request(cookies)
-            print(f"[MUSIC-API] 使用会员Cookie搜索, Cookie keys: {list(cookies.keys())}")
+        # 兜底路径：自建 NeteaseCloudMusicApi（按需开启）
+        fallback_result = await search_netease_cloud_api(keyword.strip(), limit=limit)
+        if isinstance(fallback_result, list):
+            return fallback_result
 
-        # 设置超时
-        timeout = httpx.Timeout(10.0, connect=5.0)
-        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-            netease_response = await client.get(search_url, headers=headers)
-            print(f"[MUSIC-API] 网易云API响应: {netease_response.status_code}")
+        # 返回最有信息量的错误
+        if isinstance(primary_result, dict):
+            return primary_result
+        if isinstance(fallback_result, dict):
+            return fallback_result
+        return {"error": "音乐搜索服务暂时不可用", "code": 500, "results": []}
             
-            if netease_response.status_code != 200:
-                return {"error": f"搜索失败: HTTP {netease_response.status_code}", "code": netease_response.status_code, "results": []}
-            
-            # 解析 JSON 响应
-            netease_data = netease_response.json()
-            print(f"[MUSIC-API] JSON解析成功, code={netease_data.get('code')}")
-            
-            # 检查响应格式
-            if netease_data.get("code") != 200:
-                return {"error": f"搜索失败: 网易云API返回错误 {netease_data.get('code')}", "code": netease_data.get("code", 500), "results": []}
-            
-            result = netease_data.get("result", {})
-            songs = result.get("songs", [])
-            
-            if not songs:
-                print(f"[MUSIC-API] 未找到结果")
-                return []
-            
-            # 转换为 Meting 格式
-            meting_songs = []
-            for song in songs:
-                meting_song = convert_netease_to_meting_format(song)
-                meting_songs.append(meting_song)
-            
-            print(f"[MUSIC-API] 成功返回 {len(meting_songs)} 首歌曲")
-            return meting_songs
-            
-    except httpx.TimeoutException:
-        print(f"[MUSIC-API] 请求超时")
-        return {"error": "搜索请求超时", "code": 504, "results": []}
-    except httpx.RequestError as e:
-        print(f"[MUSIC-API] 网络错误: {str(e)}")
-        return {"error": f"网络错误: {str(e)}", "code": 500, "results": []}
     except Exception as e:
         print(f"[MUSIC-API] 意外错误: {str(e)}")
         return {"error": f"搜索失败: {str(e)}", "code": 500, "results": []}
@@ -2296,108 +2442,23 @@ async def meting_proxy(
                 return {"error": "搜索关键词不能为空", "code": 400, "results": []}
             
             print(f"[MUSIC-API] 搜索关键词: {keyword}")
-            
-            try:
-                # 使用网易云官方搜索 API
-                # 根据网易云API文档，需要添加一些参数
-                search_params = {
-                    "csrf_token": "",
-                    "hlpretag": "",
-                    "hlposttag": "",
-                    "s": keyword,
-                    "type": "1",
-                    "offset": "0",
-                    "total": "true",
-                    "limit": "30"
-                }
-                search_url = f"{NETEASE_SEARCH_API}?{urlencode(search_params)}"
 
-                # 构建请求头（携带Cookie以支持会员搜索）
-                headers = NETEASE_HEADERS.copy()
-                cookies = get_cookies()
-                if cookies:
-                    headers["Cookie"] = format_cookies_for_request(cookies)
-                    print(f"[MUSIC-API] 使用会员Cookie搜索")
+            # 主路径：官方 Web API（带伪造IP与Cookie）
+            primary_result = await search_netease_official(keyword, limit=30, include_detail=True)
+            if isinstance(primary_result, list):
+                return primary_result
 
-                # 增加超时时间到15秒
-                timeout = httpx.Timeout(15.0, connect=10.0)
-                async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-                    netease_response = await client.get(search_url, headers=headers)
-                    print(f"[MUSIC-API] 网易云API响应: {netease_response.status_code}")
-                    
-                    if netease_response.status_code != 200:
-                        return {"error": f"搜索失败: HTTP {netease_response.status_code}", "code": netease_response.status_code, "results": []}
-                    
-                    # 解析 JSON 响应
-                    try:
-                        netease_data = netease_response.json()
-                        print(f"[MUSIC-API] JSON解析成功, code={netease_data.get('code')}")
-                        
-                        # 检查响应格式
-                        if netease_data.get("code") != 200:
-                            return {"error": f"网易云API返回错误 {netease_data.get('code')}", "code": netease_data.get("code", 500), "results": []}
-                        
-                        result = netease_data.get("result", {})
-                        songs = result.get("songs", [])
-                        
-                        if not songs:
-                            print(f"[MUSIC-API] 未找到结果")
-                            return []
-                        
-                        # 搜索接口本身不包含专辑封面，需要再调用详情接口获取
-                        # 收集所有歌曲ID
-                        song_ids = [str(song.get("id")) for song in songs[:30] if song.get("id")]
-                        if not song_ids:
-                            print(f"[MUSIC-API] 未找到有效的歌曲ID")
-                            return []
-                        
-                        # 构造批量查询参数：ids=[1,2,3]
-                        ids_param = "[" + ",".join(song_ids) + "]"
-                        detail_params = {"ids": ids_param}
-                        detail_url = f"{NETEASE_SONG_DETAIL_API}?{urlencode(detail_params)}"
-                        
-                        print(f"[MUSIC-API] 批量获取 {len(song_ids)} 首歌曲详情（含封面）")
-                        
-                        # 使用相同的headers和cookies
-                        detail_timeout = httpx.Timeout(10.0, connect=5.0)
-                        detail_map = {}
-                        
-                        try:
-                            async with httpx.AsyncClient(timeout=detail_timeout, follow_redirects=True) as detail_client:
-                                detail_resp = await detail_client.get(detail_url, headers=headers)
-                                print(f"[MUSIC-API] 歌曲详情响应: {detail_resp.status_code}")
-                                
-                                if detail_resp.status_code == 200:
-                                    detail_data = detail_resp.json()
-                                    detail_songs = detail_data.get("songs", [])
-                                    # 建立 id -> 详情对象 的映射
-                                    detail_map = {song.get("id"): song for song in detail_songs if song.get("id")}
-                                    print(f"[MUSIC-API] 成功获取 {len(detail_map)} 首歌曲详情")
-                        except Exception as detail_error:
-                            print(f"[MUSIC-API] 获取歌曲详情失败（将使用搜索结果）: {detail_error}")
-                        
-                        # 转换为 Meting 格式：优先使用带封面的详情数据
-                        meting_songs = []
-                        for song in songs[:30]:
-                            song_id = song.get("id")
-                            # 如果有详情数据就用详情，否则用搜索结果
-                            final_song = detail_map.get(song_id, song)
-                            meting_song = convert_netease_to_meting_format(final_song)
-                            meting_songs.append(meting_song)
-                        
-                        print(f"[MUSIC-API] 成功返回 {len(meting_songs)} 首歌曲")
-                        return meting_songs
-                        
-                    except (ValueError, TypeError) as e:
-                        print(f"[MUSIC-API] JSON解析失败: {e}")
-                        return {"error": f"JSON解析失败: {str(e)}", "code": 500, "results": []}
-                        
-            except httpx.TimeoutException:
-                print(f"[MUSIC-API] 请求超时")
-                return {"error": "搜索请求超时", "code": 504, "results": []}
-            except httpx.RequestError as e:
-                print(f"[MUSIC-API] 网络错误: {str(e)}")
-                return {"error": f"网络错误: {str(e)}", "code": 500, "results": []}
+            # 兜底：自建 NeteaseCloudMusicApi（如果开启）
+            fallback_result = await search_netease_cloud_api(keyword, limit=30)
+            if isinstance(fallback_result, list):
+                return fallback_result
+
+            # 选择最有信息的错误返回
+            if isinstance(primary_result, dict):
+                return primary_result
+            if isinstance(fallback_result, dict):
+                return fallback_result
+            return {"error": "音乐搜索服务暂时不可用", "code": 500, "results": []}
         
         # 歌词请求
         elif request_type == "lrc":
