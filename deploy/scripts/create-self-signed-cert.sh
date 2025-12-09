@@ -59,3 +59,11 @@ echo "下一步:"
 echo "  重启Nginx容器: docker-compose restart nginx"
 echo "=========================================="
 
+
+
+
+
+
+
+
+

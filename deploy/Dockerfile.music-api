@@ -1,0 +1,17 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# 克隆 NeteaseCloudMusicApi（使用 GitHub 镜像或直接克隆）
+RUN apk add --no-cache git && \
+    (git clone --depth 1 https://github.com/Binaryify/NeteaseCloudMusicApi.git . || \
+     git clone --depth 1 https://ghproxy.com/https://github.com/Binaryify/NeteaseCloudMusicApi.git . || \
+     git clone --depth 1 https://github.com.cnpmjs.org/Binaryify/NeteaseCloudMusicApi.git .) && \
+    apk del git
+
+# 安装依赖
+RUN npm install --production
+
+EXPOSE 3000
+
+CMD ["node", "app.js"]

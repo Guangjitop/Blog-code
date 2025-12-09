@@ -3,3 +3,4 @@ uvicorn[standard]==0.24.0
 pydantic[email]==2.5.0
 requests==2.31.0
 httpx==0.25.2
+APScheduler==3.10.4

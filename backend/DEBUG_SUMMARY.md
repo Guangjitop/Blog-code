@@ -111,3 +111,11 @@ docker logs backend | grep MUSIC-API | tail -20
 2. 或者在服务器上设置环境变量 `METING_API_URL=http://107.174.140.100:3000/,http://host.docker.internal:3000/`
 3. 验证修复效果
 
+
+
+
+
+
+
+
+

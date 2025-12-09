@@ -146,3 +146,11 @@ echo "3. 检查网络: docker network inspect deploy_app-network"
 echo "4. 完全重启: cd deploy && docker-compose down && docker-compose up -d"
 echo ""
 
+
+
+
+
+
+
+
+

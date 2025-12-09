@@ -60,3 +60,11 @@ echo   docker logs account-nginx --tail 100
 echo.
 pause
 
+
+
+
+
+
+
+
+

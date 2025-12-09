@@ -118,3 +118,11 @@ echo "   export FRONTEND_IMAGE=\"$FRONTEND_IMAGE\""
 echo "   ./scripts/pull-and-run.sh"
 echo "=========================================="
 
+
+
+
+
+
+
+
+

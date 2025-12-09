@@ -171,3 +171,11 @@ Toast: 🔧 音乐服务暂时不可用，请稍后再试 (red background)
 - Additional error information provided but not required
 - Frontend gracefully handles both old and new response formats
 
+
+
+
+
+
+
+
+

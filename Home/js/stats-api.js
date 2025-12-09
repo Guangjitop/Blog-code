@@ -20,19 +20,30 @@ const SESSION_VISITED_KEY = 'site_visited';
  * @returns {Promise<{visitCount: number, startTime: string}>}
  */
 async function fetchStats() {
+    const url = `${STATS_API_BASE}/api/site-stats`;
+    console.log('[STATS-API] 请求URL:', url);
+    
     try {
-        const response = await fetch(`${STATS_API_BASE}/api/stats`, {
+        const response = await fetch(url, {
             method: 'GET',
             headers: { 'Accept': 'application/json' }
         });
         
+        console.log('[STATS-API] 响应状态:', response.status, response.statusText);
+        
         if (!response.ok) {
+            const errorText = await response.text().catch(() => '');
+            console.error('[STATS-API] HTTP错误:', response.status, errorText);
             throw new Error(`HTTP ${response.status}`);
         }
         
-        return await response.json();
+        const data = await response.json();
+        console.log('[STATS-API] 获取成功:', data);
+        return data;
     } catch (error) {
-        console.warn('获取统计数据失败，使用回退值:', error);
+        console.error('[STATS-API] 获取统计数据失败，使用回退值:', error);
+        console.error('[STATS-API] 请求URL:', url);
+        console.error('[STATS-API] STATS_API_BASE:', STATS_API_BASE);
         return FALLBACK_STATS;
     }
 }
@@ -42,19 +53,29 @@ async function fetchStats() {
  * @returns {Promise<{visitCount: number, startTime: string}>}
  */
 async function recordVisit() {
+    const url = `${STATS_API_BASE}/api/site-stats/visit`;
+    console.log('[STATS-API] 记录访问，请求URL:', url);
+    
     try {
-        const response = await fetch(`${STATS_API_BASE}/api/stats/visit`, {
+        const response = await fetch(url, {
             method: 'POST',
             headers: { 'Accept': 'application/json' }
         });
         
+        console.log('[STATS-API] 记录访问响应状态:', response.status, response.statusText);
+        
         if (!response.ok) {
+            const errorText = await response.text().catch(() => '');
+            console.error('[STATS-API] 记录访问HTTP错误:', response.status, errorText);
             throw new Error(`HTTP ${response.status}`);
         }
         
-        return await response.json();
+        const data = await response.json();
+        console.log('[STATS-API] 记录访问成功:', data);
+        return data;
     } catch (error) {
-        console.warn('记录访问失败，尝试获取当前统计:', error);
+        console.error('[STATS-API] 记录访问失败，尝试获取当前统计:', error);
+        console.error('[STATS-API] 请求URL:', url);
         // 失败时尝试获取当前统计
         return fetchStats();
     }

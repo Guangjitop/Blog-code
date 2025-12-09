@@ -7,6 +7,34 @@
 version: '3.8'
 
 services:
+  # NeteaseCloudMusicApi 音乐服务
+  music-api:
+    image: binaryify/netease_cloud_music_api:latest
+    container_name: netease-music-api
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
   # Nginx 反向代理 + 前端静态文件
   nginx:
     image: ${FRONTEND_IMAGE:-docker.io/username/blog-frontend:latest}
@@ -49,10 +77,10 @@ services:
     container_name: account-backend
     environment:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin121}
-      # 音乐API地址配置（如果音乐服务在同一服务器上，设置为本地地址）
-      # 使用服务器IP: http://107.174.140.100:3000/
-      # 或使用host.docker.internal: http://host.docker.internal:3000/
-      - METING_API_URL=${METING_API_URL:-http://host.docker.internal:3000/}
+      - NETEASE_COOKIE=${NETEASE_COOKIE:-}
+      - NETEASE_API_BASE=${NETEASE_API_BASE:-http://music-api:3000}
+      # 音乐API地址配置（使用Docker内部服务名）
+      - METING_API_URL=${METING_API_URL:-http://music-api:3000/,http://host.docker.internal:3000/}
     volumes:
       - ../backend/accounts.db:/app/accounts.db
     networks:
