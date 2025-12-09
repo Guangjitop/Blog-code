@@ -3070,17 +3070,17 @@ public class DeveloperLife {
         window.hideOverlayPage = hideOverlayPage;
     </script>
 
-    <!-- 网易云登录UI -->
+    <!-- 网易云登录UI - 只显示状态，隐藏配置按钮（Cookie已在后端配置） -->
     <div id="netease-login-section">
-        <!-- 未登录状态 -->
+        <!-- 未登录状态 - 已隐藏，不显示配置按钮 -->
         <div id="login-button-container" style="display: none;">
             <button id="netease-login-btn" style="background: linear-gradient(135deg, #c20c0c, #ff3b3b); color: white; border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; font-size: 14px; font-weight: bold; box-shadow: 0 4px 12px rgba(194, 12, 12, 0.3); transition: all 0.3s;">
                 <i class="fas fa-cookie-bite"></i> 配置Cookie
             </button>
         </div>
 
-        <!-- 已登录状态 -->
-        <div id="user-info-container">
+        <!-- 已登录状态 - 显示SVIP状态 -->
+        <div id="user-info-container" style="display: none;">
             <span id="user-status-text">网易云SVIP</span>
             <span id="user-vip-badge">已激活</span>
         </div>
@@ -3174,24 +3174,31 @@ public class DeveloperLife {
             userInfo: null
         };
 
-        // 检查Cookie状态
+        // 检查Cookie状态（只显示状态，不显示配置按钮）
         async function checkNeteaseLoginStatus() {
             try {
-                const response = await fetch(`${backendBase}/api/netease/cookie-status`);
+                // backendBase 已经包含 /api，所以直接拼接路径
+                const apiUrl = backendBase.endsWith('/api') 
+                    ? `${backendBase}/netease/cookie-status`
+                    : `${backendBase}/api/netease/cookie-status`;
+                const response = await fetch(apiUrl);
                 const data = await response.json();
 
                 if (data.has_cookie) {
                     neteaseLoginState.loggedIn = true;
+                    // 显示SVIP状态，但不显示配置按钮
                     updateLoginUI(true, null);
                     console.log(`[NETEASE-COOKIE] ✓ Cookie已配置: ${data.cookie_count}个字段`);
                 } else {
                     neteaseLoginState.loggedIn = false;
-                    updateLoginUI(false);
-                    console.log('[NETEASE-COOKIE] 未配置Cookie');
+                    // 未配置时隐藏整个区域
+                    document.getElementById('netease-login-section').style.display = 'none';
+                    console.log('[NETEASE-COOKIE] Cookie未配置');
                 }
             } catch (e) {
                 console.error('[NETEASE-COOKIE] 检查状态失败:', e);
-                updateLoginUI(false);
+                // 出错时隐藏UI
+                document.getElementById('netease-login-section').style.display = 'none';
             }
         }
 
@@ -3243,7 +3250,10 @@ public class DeveloperLife {
                     return;
                 }
 
-                const response = await fetch(`${backendBase}/api/netease/set-cookie`, {
+                const apiUrl = backendBase.endsWith('/api') 
+                    ? `${backendBase}/netease/set-cookie`
+                    : `${backendBase}/api/netease/set-cookie`;
+                const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -3286,7 +3296,10 @@ public class DeveloperLife {
         // 清除Cookie
         async function clearNeteaseCookie() {
             try {
-                const response = await fetch(`${backendBase}/api/netease/clear-cookie`, {
+                const apiUrl = backendBase.endsWith('/api') 
+                    ? `${backendBase}/netease/clear-cookie`
+                    : `${backendBase}/api/netease/clear-cookie`;
+                const response = await fetch(apiUrl, {
                     method: 'POST'
                 });
                 const data = await response.json();

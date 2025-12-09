@@ -1,13 +1,12 @@
 # ===========================================
 # 宿主机 Nginx 反向代理配置
 # 用于方案B：当80/443端口被占用时
-# 域名: blog.mytype.top
 # ===========================================
 # 
 # 使用方法：
 # 1. 复制此文件到Nginx配置目录：
 #    sudo cp deploy/nginx/host-nginx-proxy.conf.example /etc/nginx/conf.d/blog.mytype.top.conf
-#    # 或 (Ubuntu/Debian)
+#    # 或
 #    sudo cp deploy/nginx/host-nginx-proxy.conf.example /etc/nginx/sites-available/blog.mytype.top
 #    sudo ln -s /etc/nginx/sites-available/blog.mytype.top /etc/nginx/sites-enabled/
 #
@@ -26,11 +25,9 @@ server {
     listen 80;
     server_name blog.mytype.top;
     
-    # Let's Encrypt 验证路径（用于证书申请和续期）
+    # Let's Encrypt 验证路径
     location /.well-known/acme-challenge/ {
         root /var/www/html;
-        # 如果使用不同的webroot路径，请修改此处
-        # 例如：root /usr/share/nginx/html;
     }
     
     # 重定向到 HTTPS
@@ -45,7 +42,6 @@ server {
     server_name blog.mytype.top;
     
     # SSL 证书配置（Let's Encrypt）
-    # 证书路径根据实际安装位置调整
     ssl_certificate /etc/letsencrypt/live/blog.mytype.top/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/blog.mytype.top/privkey.pem;
     
@@ -83,17 +79,4 @@ server {
         proxy_buffer_size 4k;
         proxy_buffers 8 4k;
     }
-    
-    # 如果需要支持WebSocket，取消以下注释
-    # location /ws/ {
-    #     proxy_pass http://docker_app;
-    #     proxy_http_version 1.1;
-    #     proxy_set_header Upgrade $http_upgrade;
-    #     proxy_set_header Connection "upgrade";
-    #     proxy_set_header Host $host;
-    #     proxy_set_header X-Real-IP $remote_addr;
-    #     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    #     proxy_set_header X-Forwarded-Proto $scheme;
-    # }
 }
-

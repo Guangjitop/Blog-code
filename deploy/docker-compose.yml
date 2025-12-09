@@ -75,6 +75,7 @@ services:
       - METING_API_URL=${METING_API_URL:-http://107.174.140.100:3000/,http://host.docker.internal:3000/}
     volumes:
       - ../backend/accounts.db:/app/accounts.db
+      - ../backend/cookies:/app/cookies
     networks:
       - app-network
     # 如果音乐服务在宿主机上，需要添加extra_hosts以访问宿主机
