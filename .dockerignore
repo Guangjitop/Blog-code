@@ -1,0 +1,24 @@
+# Exclude local build artifacts and dependencies
+frontend/node_modules
+frontend/dist
+frontend/.vite
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+
+# Backend db files (handled via volumes)
+backend/accounts.db
+
+# Documentation
+*.md
+!README.md
+
+# Test files
+**/__tests__
+**/*.test.*
+**/*.spec.*

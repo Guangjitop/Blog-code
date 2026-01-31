@@ -1,12 +1,13 @@
 import { useState } from "react"
-import { Link, useLocation, useNavigate } from "react-router-dom"
-import { 
-  Users, 
-  ChevronLeft, 
-  ChevronRight, 
+import { NavLink, useLocation, useNavigate } from "react-router-dom"
+import {
+  Users,
+  ChevronLeft,
+  ChevronRight,
   LogOut,
   Menu,
-  Key
+  Key,
+  Package
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
@@ -29,9 +30,12 @@ export function Sidebar({ userType }: SidebarProps) {
   const location = useLocation()
   const navigate = useNavigate()
 
-  const menuItems: MenuItem[] = userType === 'admin' 
+  const menuItems: MenuItem[] = userType === 'admin'
     ? [{ id: 'dashboard', label: '授权管理', icon: Key, path: '/admin/dashboard' }]
-    : [{ id: 'dashboard', label: '账号管理', icon: Users, path: '/user/dashboard' }]
+    : [
+      { id: 'dashboard', label: '账号管理', icon: Users, path: '/user/dashboard' },
+      { id: 'shipment', label: '发货标签', icon: Package, path: '/user/dashboard?tab=shipment' }
+    ]
 
   const handleLogout = async () => {
     try {
@@ -48,7 +52,7 @@ export function Sidebar({ userType }: SidebarProps) {
   }
 
   return (
-    <div 
+    <div
       style={{ width: isCollapsed ? 64 : 256 }}
       className="h-screen bg-card border-r border-border flex flex-col shadow-sm"
     >
@@ -62,7 +66,7 @@ export function Sidebar({ userType }: SidebarProps) {
             <span className="font-bold text-lg truncate">管理系统</span>
           </div>
         )}
-        
+
         <Button
           variant="ghost"
           size="icon"
@@ -77,16 +81,31 @@ export function Sidebar({ userType }: SidebarProps) {
       <nav className="flex-1 p-3 space-y-1">
         {menuItems.map((item) => {
           const Icon = item.icon
-          const isActive = location.pathname === item.path
-          
+          // 解析菜单项路径和当前URL
+          const [itemPath, itemSearch] = item.path.split('?')
+          const currentSearch = location.search
+
+          // 判断激活状态：
+          // 1. 如果菜单项有 query 参数（如 ?tab=shipment），需要 pathname 和 search 都匹配
+          // 2. 如果菜单项没有 query 参数，需要 pathname 匹配且当前 URL 没有 tab 参数
+          let isActive = false
+          if (itemSearch) {
+            // 菜单项有 query 参数，需要完全匹配
+            isActive = location.pathname === itemPath && currentSearch === `?${itemSearch}`
+          } else {
+            // 菜单项没有 query 参数，只有当当前 URL 也没有 tab 参数时才激活
+            const hasTabParam = currentSearch.includes('tab=')
+            isActive = location.pathname === itemPath && !hasTabParam
+          }
+
           return (
-            <Link
+            <NavLink
               key={item.id}
               to={item.path}
-              className={cn(
+              className={() => cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg relative group",
-                isActive 
-                  ? "bg-primary text-primary-foreground shadow-sm" 
+                isActive
+                  ? "bg-primary text-primary-foreground shadow-sm"
                   : "hover:bg-accent text-muted-foreground hover:text-foreground",
                 isCollapsed && "justify-center px-2"
               )}
@@ -94,13 +113,13 @@ export function Sidebar({ userType }: SidebarProps) {
             >
               <Icon className="h-5 w-5 flex-shrink-0" />
               {!isCollapsed && <span className="font-medium">{item.label}</span>}
-              
+
               {isCollapsed && (
                 <div className="absolute left-full ml-3 px-3 py-1.5 bg-popover text-popover-foreground text-sm rounded-lg shadow-lg border border-border opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50">
                   {item.label}
                 </div>
               )}
-            </Link>
+            </NavLink>
           )
         })}
       </nav>

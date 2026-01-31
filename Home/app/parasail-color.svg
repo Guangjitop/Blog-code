@@ -1,0 +1,5 @@
+<svg fill="currentColor" fill-rule="evenodd" height="1em" style="flex:none;line-height:1" viewBox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg">
+  <title>Parasail</title>
+  <path d="M12 2L2 8v8l10 6 10-6V8l-10-6zm0 2.5l7.5 4.5v7l-7.5 4.5-7.5-4.5v-7L12 4.5z" fill="#6366F1"/>
+  <path d="M12 7l-4 2.5v5L12 17l4-2.5v-5L12 7zm0 1.5l2.5 1.5v3L12 14.5 9.5 13v-3L12 8.5z" fill="#818CF8" opacity="0.8"/>
+</svg>

@@ -12,7 +12,7 @@ function App() {
   return (
     <ThemeProvider>
       <ToastProvider>
-        <Router>
+        <Router basename={import.meta.env.BASE_URL}>
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/admin/login" element={<AdminLogin />} />

@@ -143,6 +143,46 @@ class BatchToggleRequest(BaseModel):
     ids: List[int]
     is_enabled: bool
 
+class ShipmentCategory(BaseModel):
+    """发货标签分类模型"""
+    id: Optional[int] = None
+    name: str
+    description: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+class ShipmentCategoryResponse(BaseModel):
+    """发货标签分类响应模型"""
+    id: int
+    name: str
+    description: Optional[str] = None
+    content_count: int = 0
+    created_at: str
+
+class ShipmentContent(BaseModel):
+    """发货标签内容模型"""
+    id: Optional[int] = None
+    content: str
+    category_id: Optional[int] = None
+    is_used: bool = False
+    created_at: Optional[datetime] = None
+    used_at: Optional[datetime] = None
+
+class ShipmentContentResponse(BaseModel):
+    """发货标签内容响应模型"""
+    id: int
+    content: str
+    category_id: Optional[int] = None
+    category_name: Optional[str] = None
+    is_used: bool
+    created_at: str
+    used_at: Optional[str] = None
+
+class BatchShipmentContentRequest(BaseModel):
+    """批量添加发货标签内容请求"""
+    key: str
+    category_id: Optional[int] = None
+    contents: List[str]
+
 # 数据库连接管理
 @contextmanager
 def get_db():
@@ -211,6 +251,32 @@ def init_db():
         if 'owner_key' not in columns:
             cursor.execute('ALTER TABLE accounts ADD COLUMN owner_key TEXT')
         
+        # 创建发货标签分类表
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS shipment_categories (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                description TEXT,
+                owner_key TEXT,
+                created_at TEXT NOT NULL
+            )
+        ''')
+
+        # 创建发货标签内容表
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS shipment_contents (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                content TEXT NOT NULL,
+                category_id INTEGER,
+                owner_key TEXT,
+                is_used INTEGER DEFAULT 0,
+                created_at TEXT NOT NULL,
+                used_at TEXT,
+                FOREIGN KEY (category_id) REFERENCES shipment_categories(id)
+            )
+        ''')
+
+        
         # 检查是否需要添加is_enabled列到accounts表（兼容旧数据库）
         if 'is_enabled' not in columns:
             cursor.execute('ALTER TABLE accounts ADD COLUMN is_enabled INTEGER DEFAULT 1')
@@ -240,6 +306,43 @@ def init_db():
                 VALUES (1, 0, ?, ?)
             ''', (now, now))
         
+        # 创建发货标签分类表
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS shipment_categories (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                description TEXT,
+                owner_key TEXT,
+                created_at TEXT NOT NULL
+            )
+        ''')
+        
+        # 检查是否需要添加owner_key列到shipment_categories表（兼容旧数据库）
+        cursor.execute("PRAGMA table_info(shipment_categories)")
+        ship_cat_columns = [col[1] for col in cursor.fetchall()]
+        if 'owner_key' not in ship_cat_columns:
+            cursor.execute('ALTER TABLE shipment_categories ADD COLUMN owner_key TEXT')
+
+        # 创建发货标签内容表
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS shipment_contents (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                content TEXT NOT NULL,
+                category_id INTEGER,
+                owner_key TEXT,
+                is_used INTEGER DEFAULT 0,
+                created_at TEXT NOT NULL,
+                used_at TEXT,
+                FOREIGN KEY (category_id) REFERENCES shipment_categories(id)
+            )
+        ''')
+        
+        # 检查是否需要添加owner_key列到shipment_contents表（兼容旧数据库）
+        cursor.execute("PRAGMA table_info(shipment_contents)")
+        ship_cont_columns = [col[1] for col in cursor.fetchall()]
+        if 'owner_key' not in ship_cont_columns:
+            cursor.execute('ALTER TABLE shipment_contents ADD COLUMN owner_key TEXT')
+
         conn.commit()
 
 # ==================== 授权码辅助函数 ====================
@@ -1326,20 +1429,36 @@ def query_password(
 
 # 音乐API地址配置（支持环境变量）
 # ==================== 音乐API配置 ====================
-# 直接使用网易云官方API，不再使用第三方wrapper服务
+# 使用TuneHub V3 API作为主要音乐服务
 
 # 检测运行环境
 is_docker_env = os.path.exists('/.dockerenv') or os.path.exists('/run/.containerenv')
 env_type = 'Docker' if is_docker_env else 'Host'
 
-# DEPRECATED: METING_API_URLS 已不再使用，仅保留作为向后兼容
-# 现在直接使用官方网易云API
-METING_API_URLS = []  # 空列表，不再使用wrapper service endpoints
+# ==================== TuneHub API配置 ====================
+TUNEHUB_API_BASE = "https://tunehub.sayqz.com/api"
+TUNEHUB_API_KEY = os.getenv("TUNEHUB_API_KEY", "th_00f491df831ce7c1ab5f9be2debb7f8ae93923c6d72357eb")
+TUNEHUB_DEFAULT_QUALITY = os.getenv("TUNEHUB_DEFAULT_QUALITY", "320k")  # 支持: 128k, 320k, flac, flac24bit
+TUNEHUB_DEFAULT_PLATFORM = "netease"  # 默认使用网易云平台
+
+# TuneHub请求头 - 使用 API Key 认证
+TUNEHUB_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "Accept": "application/json",
+    "Content-Type": "application/json",
+    "X-API-Key": TUNEHUB_API_KEY,
+    "Authorization": f"Bearer {TUNEHUB_API_KEY}"
+}
 
 print(f"[MUSIC-API-CONFIG] =========================================")
 print(f"[MUSIC-API-CONFIG] 运行环境: {env_type}")
-print(f"[MUSIC-API-CONFIG] 使用官方网易云API (music.163.com)")
+print(f"[MUSIC-API-CONFIG] 主服务: TuneHub V3 API ({TUNEHUB_API_BASE})")
+print(f"[MUSIC-API-CONFIG] 备用服务: 网易云官方 API")
+print(f"[MUSIC-API-CONFIG] 默认音质: {TUNEHUB_DEFAULT_QUALITY}")
 print(f"[MUSIC-API-CONFIG] =========================================")
+
+# ==================== 网易云API配置（备用） ====================
+# DEPRECATED: 以下配置仅作为TuneHub不可用时的备用
 
 # 网易云网页版接口（用于搜索/歌词/播放链接）
 NETEASE_WEB_BASE = "https://music.163.com"
@@ -1538,7 +1657,238 @@ def validate_cookies() -> bool:
     print(f"[COOKIE-VALIDATE] OK Cookie有效: {list(cookies.keys())}, MUSIC_U长度: {music_u_len}")
     return True
 
-# ==================== 音乐API辅助函数 ====================
+# ==================== TuneHub API辅助函数 ====================
+
+async def search_tunehub(keyword: str, limit: int = 30, source: str = "netease") -> list | dict:
+    """
+    使用 TuneHub API 搜索音乐，并转换为 Meting 兼容格式。
+    返回列表表示成功；返回字典表示错误。
+    """
+    print(f"[TUNEHUB] 搜索关键词: {keyword}, limit={limit}, source={source}")
+    
+    # TuneHub API 端点格式: /api/?source={source}&type=search&keyword={keyword}&limit={limit}
+    search_url = f"{TUNEHUB_API_BASE}/?source={source}&type=search&keyword={keyword}&limit={limit}"
+    
+    try:
+        timeout = httpx.Timeout(15.0, connect=10.0)
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+            response = await client.get(search_url, headers=TUNEHUB_HEADERS)
+            print(f"[TUNEHUB] 搜索响应状态: {response.status_code}")
+            
+            if response.status_code != 200:
+                print(f"[TUNEHUB] 搜索失败: HTTP {response.status_code}")
+                return {
+                    "error": f"TuneHub搜索失败: HTTP {response.status_code}",
+                    "code": response.status_code,
+                    "results": []
+                }
+            
+            try:
+                data = response.json()
+            except (ValueError, TypeError) as e:
+                print(f"[TUNEHUB] JSON解析失败: {e}")
+                return {
+                    "error": "TuneHub响应解析失败",
+                    "code": 502,
+                    "results": []
+                }
+            
+            # TuneHub 响应格式检查
+            if isinstance(data, dict) and data.get("code") and data.get("code") != 200:
+                return {
+                    "error": f"TuneHub API返回错误: {data.get('msg', data.get('code'))}",
+                    "code": data.get("code", 500),
+                    "results": []
+                }
+            
+            # 转换为 Meting 兼容格式
+            songs = data if isinstance(data, list) else data.get("data", data.get("songs", data.get("result", [])))
+            if not songs:
+                print("[TUNEHUB] 未找到结果")
+                return []
+            
+            meting_songs = [convert_tunehub_to_meting_format(song, platform=source) for song in songs[:limit]]
+            print(f"[TUNEHUB] 搜索成功返回 {len(meting_songs)} 首歌曲")
+            return meting_songs
+            
+    except httpx.TimeoutException:
+        print("[TUNEHUB] 搜索超时")
+        return {"error": "TuneHub搜索请求超时", "code": 504, "results": []}
+    except httpx.RequestError as e:
+        print(f"[TUNEHUB] 搜索网络错误: {e}")
+        return {"error": f"TuneHub网络错误: {str(e)}", "code": 500, "results": []}
+    except Exception as e:
+        print(f"[TUNEHUB] 搜索异常: {e}")
+        return {"error": f"TuneHub搜索失败: {str(e)}", "code": 500, "results": []}
+
+
+async def get_tunehub_play_url(song_id: str, quality: str = None, source: str = "netease") -> str:
+    """
+    使用 TuneHub API 获取歌曲播放链接
+    quality: 128k, 320k, flac, flac24bit
+    """
+    if quality is None:
+        quality = TUNEHUB_DEFAULT_QUALITY
+    
+    print(f"[TUNEHUB] 获取播放链接: id={song_id}, quality={quality}, source={source}")
+    
+    # TuneHub API 端点格式: /api/?source={source}&id={id}&type=url&br={quality}
+    url = f"{TUNEHUB_API_BASE}/?source={source}&id={song_id}&type=url&br={quality}"
+    
+    try:
+        timeout = httpx.Timeout(10.0, connect=8.0)
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+            response = await client.get(url, headers=TUNEHUB_HEADERS)
+            print(f"[TUNEHUB] 播放链接响应状态: {response.status_code}")
+            
+            if response.status_code == 200:
+                try:
+                    data = response.json()
+                    # TuneHub 可能返回 {url: "..."} 或直接返回 URL 字符串
+                    if isinstance(data, str):
+                        play_url = data
+                    elif isinstance(data, dict):
+                        play_url = data.get("url") or data.get("data", {}).get("url") if isinstance(data.get("data"), dict) else data.get("data")
+                    else:
+                        play_url = None
+                    
+                    if play_url:
+                        print(f"[TUNEHUB] ✓ 获取播放链接成功: {play_url[:50]}...")
+                        return play_url
+                    else:
+                        print(f"[TUNEHUB] ✗ 播放链接为空")
+                except (ValueError, TypeError) as e:
+                    print(f"[TUNEHUB] JSON解析失败: {e}")
+            else:
+                print(f"[TUNEHUB] ✗ HTTP错误: {response.status_code}")
+                
+    except httpx.TimeoutException:
+        print(f"[TUNEHUB] ✗ 请求超时")
+    except Exception as e:
+        print(f"[TUNEHUB] ✗ 异常: {type(e).__name__}: {e}")
+    
+    return ""
+
+
+async def get_tunehub_lyrics(song_id: str, source: str = "netease") -> str:
+    """
+    使用 TuneHub API 获取歌词
+    """
+    print(f"[TUNEHUB] 获取歌词: id={song_id}, source={source}")
+    
+    # TuneHub API 端点格式: /api/?source={source}&id={id}&type=lrc
+    url = f"{TUNEHUB_API_BASE}/?source={source}&id={song_id}&type=lrc"
+    
+    try:
+        timeout = httpx.Timeout(10.0, connect=5.0)
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+            response = await client.get(url, headers=TUNEHUB_HEADERS)
+            print(f"[TUNEHUB] 歌词响应状态: {response.status_code}")
+            
+            if response.status_code == 200:
+                try:
+                    data = response.json()
+                    # TuneHub 可能返回 {lrc: "..."} 或 {lyric: "..."} 或直接返回歌词字符串
+                    if isinstance(data, str):
+                        lyrics = data
+                    elif isinstance(data, dict):
+                        lyrics = data.get("lrc") or data.get("lyric") or data.get("data", "")
+                    else:
+                        lyrics = ""
+                    
+                    if lyrics:
+                        print(f"[TUNEHUB] ✓ 获取歌词成功，长度: {len(lyrics)}")
+                        return lyrics
+                except (ValueError, TypeError):
+                    # 可能直接返回纯文本歌词
+                    return response.text
+                    
+    except httpx.TimeoutException:
+        print(f"[TUNEHUB] ✗ 歌词请求超时")
+    except Exception as e:
+        print(f"[TUNEHUB] ✗ 获取歌词异常: {e}")
+    
+    return ""
+
+
+async def get_tunehub_song_info(song_id: str, source: str = "netease") -> dict:
+    """
+    使用 TuneHub API 获取歌曲信息
+    """
+    print(f"[TUNEHUB] 获取歌曲信息: id={song_id}, source={source}")
+    
+    url = f"{TUNEHUB_API_BASE}/?source={source}&id={song_id}&type=info"
+    
+    try:
+        timeout = httpx.Timeout(10.0, connect=5.0)
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+            response = await client.get(url, headers=TUNEHUB_HEADERS)
+            
+            if response.status_code == 200:
+                data = response.json()
+                return data if isinstance(data, dict) else {"data": data}
+                    
+    except Exception as e:
+        print(f"[TUNEHUB] ✗ 获取歌曲信息异常: {e}")
+    
+    return {}
+
+
+def convert_tunehub_to_meting_format(song_data: dict, platform: str = "netease") -> dict:
+    """
+    将 TuneHub API 返回的歌曲数据转换为 Meting 兼容格式
+    
+    TuneHub 可能返回的字段：
+    - name/title: 歌曲名
+    - artist/singer/artists: 艺术家
+    - album: 专辑
+    - pic/cover/picUrl: 封面
+    - id: 歌曲ID
+    - duration: 时长
+    """
+    # 歌曲名
+    name = song_data.get("name") or song_data.get("title") or ""
+    
+    # 艺术家
+    artist = song_data.get("artist") or song_data.get("singer") or ""
+    if not artist:
+        artists = song_data.get("artists") or song_data.get("ar") or []
+        if isinstance(artists, list):
+            artist = ", ".join([a.get("name", "") for a in artists if isinstance(a, dict)])
+    
+    # 专辑
+    album_data = song_data.get("album") or song_data.get("al") or {}
+    if isinstance(album_data, dict):
+        album = album_data.get("name", "")
+        pic = album_data.get("picUrl") or album_data.get("pic") or ""
+    else:
+        album = album_data if isinstance(album_data, str) else ""
+        pic = ""
+    
+    # 封面
+    if not pic:
+        pic = song_data.get("pic") or song_data.get("cover") or song_data.get("picUrl") or ""
+    
+    # 时长
+    duration = song_data.get("duration") or song_data.get("dt") or 0
+    if duration > 1000:  # 毫秒转秒
+        duration = duration // 1000
+    
+    return {
+        "name": name,
+        "artist": artist,
+        "url": "",  # 播放链接需要单独获取
+        "cover": pic,
+        "lrc": "",  # 歌词需要单独获取
+        "id": str(song_data.get("id", "")),
+        "pic": pic,
+        "album": album,
+        "duration": duration,
+        "platform": platform
+    }
+
+
+# ==================== 网易云API辅助函数（备用） ====================
 
 async def search_netease_official(keyword: str, limit: int = 30, include_detail: bool = True):
     """
@@ -1804,9 +2154,10 @@ async def get_netease_play_url(song_id: str) -> str:
 async def music_search(
     keyword: str = Query(..., description="搜索关键词"),
     limit: int = Query(30, description="返回数量限制"),
+    source: str = Query("netease", description="音乐源: netease, qq, kuwo"),
     response: Response = None
 ):
-    """使用官方网易云API进行音乐搜索"""
+    """使用 TuneHub API 进行音乐搜索（网易云官方API作为备用）"""
     # 设置CORS头（对所有响应，包括错误响应）
     if response:
         response.headers["Access-Control-Allow-Origin"] = "*"
@@ -1817,26 +2168,14 @@ async def music_search(
         return {"error": "搜索关键词不能为空", "code": 400, "results": []}
     
     try:
-        # 主路径：官方 Web API
-        primary_result = await search_netease_official(keyword.strip(), limit=limit, include_detail=False)
-        if isinstance(primary_result, list):
-            return primary_result
-
-        # 兜底路径：自建 NeteaseCloudMusicApi（按需开启）
-        fallback_result = await search_netease_cloud_api(keyword.strip(), limit=limit)
-        if isinstance(fallback_result, list):
-            return fallback_result
-
-        # 返回最有信息量的错误
-        if isinstance(primary_result, dict):
-            return primary_result
-        if isinstance(fallback_result, dict):
-            return fallback_result
-        return {"error": "音乐搜索服务暂时不可用", "code": 500, "results": []}
+        # 主路径：TuneHub API
+        print(f"[MUSIC-API] 搜索请求: keyword={keyword}, source={source}")
+        return await search_tunehub(keyword.strip(), limit=limit, source=source)
             
     except Exception as e:
         print(f"[MUSIC-API] 意外错误: {str(e)}")
         return {"error": f"搜索失败: {str(e)}", "code": 500, "results": []}
+
 
 @app.get("/api/music/playlist", tags=["音乐搜索"])
 async def music_playlist(
@@ -1921,7 +2260,7 @@ async def music_lyrics(
     server: str = Query("netease", description="服务器"),
     response: Response = None
 ):
-    """使用官方网易云API获取歌词内容"""
+    """使用 TuneHub API 获取歌词（网易云官方API作为备用）"""
     # 设置CORS头
     if response:
         response.headers["Access-Control-Allow-Origin"] = "*"
@@ -1931,8 +2270,14 @@ async def music_lyrics(
     try:
         print(f"[MUSIC-API] 获取歌词: {id}")
         
-        # 使用网易云官方歌词 API
-        # lv=-1, kv=-1, tv=-1 表示获取所有类型的歌词
+        # 主路径：TuneHub API
+        lyrics = await get_tunehub_lyrics(id, source=server)
+        if lyrics:
+            print(f"[MUSIC-API] TuneHub 成功获取歌词，长度: {len(lyrics)}")
+            return PlainTextResponse(content=lyrics, media_type="text/plain")
+        
+        # 备用路径：网易云官方歌词 API
+        print("[MUSIC-API] TuneHub 歌词为空，尝试网易云官方API")
         lyric_url = f"{NETEASE_LYRIC_API}?id={id}&lv=-1&kv=-1&tv=-1"
         
         # 构建请求头
@@ -1970,10 +2315,11 @@ async def music_lyrics(
         print(f"[MUSIC-API] 获取歌词失败: {str(e)}")
         return PlainTextResponse(content="", media_type="text/plain")
 
+
 @app.get("/api/music/health", tags=["音乐搜索"])
 async def music_health():
     """
-    健康检查端点 - 检查官方网易云API服务的可用性
+    健康检查端点 - 检查 TuneHub API 和备用网易云API服务的可用性
     返回当前环境信息和音乐API服务状态
     """
     import time
@@ -1982,17 +2328,47 @@ async def music_health():
     is_docker = os.path.exists('/.dockerenv') or os.path.exists('/run/.containerenv')
     environment = "docker" if is_docker else "development" if os.getenv("ENVIRONMENT", "development").lower() == "development" else "production"
     
-    # 测试官方网易云API
-    music_api_available = False
-    endpoint_used = NETEASE_SEARCH_API
-    response_time_ms = None
-    error_message = None
+    # 测试 TuneHub API
+    tunehub_available = False
+    tunehub_response_time = None
+    tunehub_error = None
+    
+    try:
+        start_time = time.time()
+        timeout = httpx.Timeout(5.0, connect=2.0)
+        test_url = f"{TUNEHUB_API_BASE}/?source=netease&type=search&keyword=test&limit=1"
+        
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+            test_response = await client.get(test_url, headers=TUNEHUB_HEADERS)
+            tunehub_response_time = int((time.time() - start_time) * 1000)
+            
+            if test_response.status_code == 200:
+                data = test_response.json()
+                if isinstance(data, list) or (isinstance(data, dict) and data.get("code", 200) == 200):
+                    tunehub_available = True
+                else:
+                    tunehub_error = f"API返回错误: {data.get('code', 'unknown')}"
+            else:
+                tunehub_error = f"HTTP {test_response.status_code}"
+    except httpx.ConnectError as e:
+        tunehub_response_time = int((time.time() - start_time) * 1000) if 'start_time' in locals() else None
+        tunehub_error = f"连接失败: {str(e)}"
+    except httpx.TimeoutException:
+        tunehub_response_time = int((time.time() - start_time) * 1000) if 'start_time' in locals() else None
+        tunehub_error = "请求超时"
+    except Exception as e:
+        tunehub_response_time = int((time.time() - start_time) * 1000) if 'start_time' in locals() else None
+        tunehub_error = f"错误: {str(e)}"
+    
+    # 测试备用网易云API
+    netease_available = False
+    netease_response_time = None
+    netease_error = None
     
     try:
         start_time = time.time()
         timeout = httpx.Timeout(5.0, connect=2.0)
         
-        # 尝试一个简单的搜索请求来测试连接
         search_params = {
             "csrf_token": "",
             "s": "test",
@@ -2009,39 +2385,50 @@ async def music_health():
         
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
             test_response = await client.get(test_url, headers=headers)
-            response_time_ms = int((time.time() - start_time) * 1000)
+            netease_response_time = int((time.time() - start_time) * 1000)
             
             if test_response.status_code == 200:
                 data = test_response.json()
                 if data.get("code") == 200:
-                    music_api_available = True
+                    netease_available = True
                 else:
-                    error_message = f"API code {data.get('code')}"
+                    netease_error = f"API code {data.get('code')}"
             else:
-                error_message = f"HTTP {test_response.status_code}"
+                netease_error = f"HTTP {test_response.status_code}"
     except httpx.ConnectError as e:
-        response_time_ms = int((time.time() - start_time) * 1000)
-        error_message = f"Connection failed: {str(e)}"
+        netease_response_time = int((time.time() - start_time) * 1000) if 'start_time' in locals() else None
+        netease_error = f"连接失败: {str(e)}"
     except httpx.TimeoutException:
-        response_time_ms = int((time.time() - start_time) * 1000)
-        error_message = "Request timeout"
+        netease_response_time = int((time.time() - start_time) * 1000) if 'start_time' in locals() else None
+        netease_error = "请求超时"
     except Exception as e:
-        response_time_ms = int((time.time() - start_time) * 1000) if 'start_time' in locals() else None
-        error_message = f"Error: {str(e)}"
+        netease_response_time = int((time.time() - start_time) * 1000) if 'start_time' in locals() else None
+        netease_error = f"错误: {str(e)}"
+    
+    # 确定整体状态
+    overall_status = "ok" if tunehub_available else ("degraded" if netease_available else "unavailable")
     
     return {
-        "status": "ok" if music_api_available else "degraded",
+        "status": overall_status,
         "environment": environment,
-        "music_api_service": {
-            "available": music_api_available,
-            "endpoint": endpoint_used,
-            "response_time_ms": response_time_ms,
-            "error": error_message if not music_api_available else None,
-            "api_type": "Official Netease Cloud Music API",
+        "tunehub_api": {
+            "available": tunehub_available,
+            "endpoint": TUNEHUB_API_BASE,
+            "response_time_ms": tunehub_response_time,
+            "error": tunehub_error,
+            "api_type": "TuneHub V3 API (主服务)"
+        },
+        "netease_api": {
+            "available": netease_available,
+            "endpoint": NETEASE_SEARCH_API,
+            "response_time_ms": netease_response_time,
+            "error": netease_error,
+            "api_type": "Official Netease Cloud Music API (备用)",
             "has_cookies": bool(get_cookies())
         },
         "timestamp": datetime.now(ZoneInfo('Asia/Shanghai')).isoformat()
     }
+
 
 @app.get("/api/music/playlist/diagnose", tags=["音乐搜索"])
 async def diagnose_playlist(
@@ -2443,21 +2830,14 @@ async def meting_proxy(
             
             print(f"[MUSIC-API] 搜索关键词: {keyword}")
 
-            # 主路径：官方 Web API（带伪造IP与Cookie）
-            primary_result = await search_netease_official(keyword, limit=30, include_detail=True)
+            # 主路径：TuneHub API
+            primary_result = await search_tunehub(keyword, limit=30, source=server)
             if isinstance(primary_result, list):
                 return primary_result
 
-            # 兜底：自建 NeteaseCloudMusicApi（如果开启）
-            fallback_result = await search_netease_cloud_api(keyword, limit=30)
-            if isinstance(fallback_result, list):
-                return fallback_result
-
-            # 选择最有信息的错误返回
-            if isinstance(primary_result, dict):
+            # 错误处理
+            if isinstance(primary_result, dict) and "error" in primary_result:
                 return primary_result
-            if isinstance(fallback_result, dict):
-                return fallback_result
             return {"error": "音乐搜索服务暂时不可用", "code": 500, "results": []}
         
         # 歌词请求
@@ -2467,22 +2847,9 @@ async def meting_proxy(
                 return PlainTextResponse(content="", media_type="text/plain")
             
             try:
-                lyric_url = f"{NETEASE_LYRIC_API}?id={song_id}&lv=-1&kv=-1&tv=-1"
-                headers = NETEASE_HEADERS.copy()
-                cookies = get_cookies()
-                if cookies:
-                    headers["Cookie"] = format_cookies_for_request(cookies)
-                
-                timeout = httpx.Timeout(10.0, connect=5.0)
-                async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-                    lyric_response = await client.get(lyric_url, headers=headers)
-                    if lyric_response.status_code == 200:
-                        lyric_data = lyric_response.json()
-                        if lyric_data.get("code") == 200:
-                            lrc_text = lyric_data.get("lrc", {}).get("lyric", "")
-                            return PlainTextResponse(content=lrc_text, media_type="text/plain")
-                
-                return PlainTextResponse(content="", media_type="text/plain")
+                # 主路径：TuneHub API
+                lyrics = await get_tunehub_lyrics(song_id, source=server)
+                return PlainTextResponse(content=lyrics if lyrics else "", media_type="text/plain")
             except Exception as e:
                 print(f"[MUSIC-API] 获取歌词失败: {str(e)}")
                 return PlainTextResponse(content="", media_type="text/plain")
@@ -2494,9 +2861,9 @@ async def meting_proxy(
                 return {"url": ""}
             
             try:
-                # 使用官方API获取播放链接（带Cookie）
+                # 主路径：TuneHub API
                 print(f"[MUSIC-API] 获取播放链接: {song_id}")
-                play_url = await get_netease_play_url(song_id)
+                play_url = await get_tunehub_play_url(song_id, source=server)
                 return {"url": play_url if play_url else None}
             except Exception as e:
                 print(f"[MUSIC-API] ERROR 获取播放链接失败: {e}")
@@ -2915,6 +3282,360 @@ def record_visit(response: Response):
             "startTime": row["start_time"]
         }
 
+# ==================== 发货标签管理接口 ====================
+
+@app.get("/api/shipment/categories", response_model=List[ShipmentCategoryResponse], tags=["发货标签管理"])
+def get_shipment_categories(key: str = Depends(get_valid_key)):
+    """【用户】获取所有发货标签分类"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT c.*, COUNT(s.id) as content_count 
+            FROM shipment_categories c 
+            LEFT JOIN shipment_contents s ON c.id = s.category_id AND s.owner_key = ?
+            WHERE c.owner_key = ?
+            GROUP BY c.id 
+            ORDER BY c.created_at DESC
+        ''', (key, key))
+        
+        rows = cursor.fetchall()
+        
+        return [
+            {
+                "id": row["id"],
+                "name": row["name"],
+                "description": row["description"],
+                "content_count": row["content_count"],
+                "created_at": row["created_at"]
+            }
+            for row in rows
+        ]
+
+@app.get("/api/shipment/categories/add", tags=["发货标签管理"])
+def add_shipment_category(
+    key: str = Depends(get_valid_key),
+    name: str = Query(..., description="分类名称"),
+    description: str = Query("", description="分类描述")
+):
+    """【用户】添加新发货标签分类"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        
+        # 检查分类是否已存在
+        cursor.execute("SELECT id FROM shipment_categories WHERE name = ? AND owner_key = ?", (name, key))
+        if cursor.fetchone():
+            raise HTTPException(status_code=400, detail="该分类已存在")
+        
+        cursor.execute('''
+            INSERT INTO shipment_categories (name, description, owner_key, created_at)
+            VALUES (?, ?, ?, ?)
+        ''', (name, description, key, datetime.now(ZoneInfo('Asia/Shanghai')).isoformat()))
+        
+        conn.commit()
+        category_id = cursor.lastrowid
+        
+        return {
+            "success": True,
+            "message": "分类添加成功",
+            "category": {
+                "id": category_id,
+                "name": name,
+                "description": description
+            }
+        }
+
+@app.get("/api/shipment/categories/update", tags=["发货标签管理"])
+def update_shipment_category(
+    key: str = Depends(get_valid_key),
+    id: int = Query(..., description="分类ID"),
+    name: str = Query(None, description="新分类名称"),
+    description: str = Query(None, description="新分类描述")
+):
+    """【用户】更新发货标签分类"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT * FROM shipment_categories WHERE id = ? AND owner_key = ?", (id, key))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="分类不存在")
+        
+        updates = []
+        params = []
+        if name:
+            updates.append("name = ?")
+            params.append(name)
+        if description is not None:
+            updates.append("description = ?")
+            params.append(description)
+        
+        if updates:
+            params.append(id)
+            params.append(key)
+            cursor.execute(f"UPDATE shipment_categories SET {', '.join(updates)} WHERE id = ? AND owner_key = ?", params)
+            conn.commit()
+        
+        return {"success": True, "message": "分类更新成功"}
+
+@app.get("/api/shipment/categories/delete", tags=["发货标签管理"])
+def delete_shipment_category(key: str = Depends(get_valid_key), id: int = Query(..., description="分类ID")):
+    """【用户】删除发货标签分类（分类下的内容会变为未分类）"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT name FROM shipment_categories WHERE id = ? AND owner_key = ?", (id, key))
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="分类不存在")
+        
+        # 将该分类下的内容设为未分类
+        cursor.execute("UPDATE shipment_contents SET category_id = NULL WHERE category_id = ? AND owner_key = ?", (id, key))
+        cursor.execute("DELETE FROM shipment_categories WHERE id = ? AND owner_key = ?", (id, key))
+        conn.commit()
+        
+        return {"success": True, "message": f"分类 '{row['name']}' 已删除"}
+
+@app.get("/api/shipment/contents", response_model=List[ShipmentContentResponse], tags=["发货标签管理"])
+def get_shipment_contents(
+    key: str = Depends(get_valid_key),
+    category_id: Optional[int] = Query(None, description="按分类筛选"),
+    is_used: Optional[bool] = Query(None, description="按使用状态筛选")
+):
+    """【用户】获取所有发货标签内容"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        
+        conditions = ["s.owner_key = ?"]
+        params = [key]
+        
+        if category_id is not None:
+            conditions.append("s.category_id = ?")
+            params.append(category_id)
+        
+        if is_used is not None:
+            conditions.append("s.is_used = ?")
+            params.append(1 if is_used else 0)
+        
+        query = f'''
+            SELECT s.*, c.name as category_name 
+            FROM shipment_contents s 
+            LEFT JOIN shipment_categories c ON s.category_id = c.id 
+            WHERE {' AND '.join(conditions)}
+            ORDER BY s.created_at DESC
+        '''
+        
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        
+        return [
+            {
+                "id": row["id"],
+                "content": row["content"],
+                "category_id": row["category_id"],
+                "category_name": row["category_name"],
+                "is_used": bool(row["is_used"]),
+                "created_at": row["created_at"],
+                "used_at": row["used_at"]
+            }
+            for row in rows
+        ]
+
+@app.get("/api/shipment/contents/add", tags=["发货标签管理"])
+def add_shipment_content(
+    key: str = Depends(get_valid_key),
+    content: str = Query(..., description="内容文本"),
+    category_id: Optional[int] = Query(None, description="分类ID")
+):
+    """【用户】添加单个发货标签内容"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        
+        # 检查分类是否存在
+        if category_id:
+            cursor.execute("SELECT id FROM shipment_categories WHERE id = ? AND owner_key = ?", (category_id, key))
+            if not cursor.fetchone():
+                raise HTTPException(status_code=400, detail="指定的分类不存在")
+        
+        cursor.execute('''
+            INSERT INTO shipment_contents (content, category_id, owner_key, is_used, created_at)
+            VALUES (?, ?, ?, 0, ?)
+        ''', (content, category_id, key, datetime.now(ZoneInfo('Asia/Shanghai')).isoformat()))
+        
+        conn.commit()
+        content_id = cursor.lastrowid
+        
+        return {
+            "success": True,
+            "message": "内容添加成功",
+            "content": {
+                "id": content_id,
+                "content": content,
+                "category_id": category_id
+            }
+        }
+
+@app.post("/api/shipment/contents/batch-add", tags=["发货标签管理"])
+def batch_add_shipment_contents(request: BatchShipmentContentRequest):
+    """【用户】批量添加发货标签内容"""
+    if not validate_auth_key(request.key):
+        raise HTTPException(status_code=401, detail="授权码无效或已禁用")
+    
+    key = request.key
+    category_id = request.category_id
+    
+    with get_db() as conn:
+        cursor = conn.cursor()
+        
+        if category_id:
+            cursor.execute("SELECT id FROM shipment_categories WHERE id = ? AND owner_key = ?", (category_id, key))
+            if not cursor.fetchone():
+                raise HTTPException(status_code=400, detail="指定的分类不存在")
+        
+        success_count = 0
+        
+        for content in request.contents:
+            if not content.strip():
+                continue
+            
+            cursor.execute('''
+                INSERT INTO shipment_contents (content, category_id, owner_key, is_used, created_at)
+                VALUES (?, ?, ?, 0, ?)
+            ''', (content.strip(), category_id, key, datetime.now(ZoneInfo('Asia/Shanghai')).isoformat()))
+            success_count += 1
+        
+        conn.commit()
+        
+        return {
+            "success": True,
+            "message": f"批量导入完成",
+            "success_count": success_count
+        }
+
+@app.get("/api/shipment/contents/delete", tags=["发货标签管理"])
+def delete_shipment_content(key: str = Depends(get_valid_key), id: int = Query(..., description="内容ID")):
+    """【用户】删除发货标签内容"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT id FROM shipment_contents WHERE id = ? AND owner_key = ?", (id, key))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="内容不存在")
+        
+        cursor.execute("DELETE FROM shipment_contents WHERE id = ? AND owner_key = ?", (id, key))
+        conn.commit()
+        
+        return {"success": True, "message": "内容删除成功"}
+
+@app.get("/api/shipment/contents/reset", tags=["发货标签管理"])
+def reset_shipment_content(key: str = Depends(get_valid_key), id: int = Query(..., description="内容ID")):
+    """【用户】重置发货标签内容状态（设为未使用）"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT id FROM shipment_contents WHERE id = ? AND owner_key = ?", (id, key))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="内容不存在")
+        
+        cursor.execute("UPDATE shipment_contents SET is_used = 0, used_at = NULL WHERE id = ? AND owner_key = ?", (id, key))
+        conn.commit()
+        
+        return {"success": True, "message": "内容状态已重置"}
+
+@app.get("/api/shipment/get", tags=["发货标签管理"])
+def get_shipment_content_public(
+    key: str = Depends(get_user_key_flexible),
+    category_id: Optional[int] = Query(None, description="分类ID")
+):
+    """【公共】获取并使用一个发货标签内容"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        
+        # 构建查询条件
+        conditions = ["owner_key = ?", "is_used = 0"]
+        params = [key]
+        
+        if category_id:
+            conditions.append("category_id = ?")
+            params.append(category_id)
+        
+        # 随机获取一个未使用内容
+        query = f'''
+            SELECT id, content, created_at 
+            FROM shipment_contents 
+            WHERE {' AND '.join(conditions)}
+            ORDER BY RANDOM() LIMIT 1
+        '''
+        
+        cursor.execute(query, params)
+        row = cursor.fetchone()
+        
+        if not row:
+            raise HTTPException(status_code=404, detail="没有可用的内容")
+        
+        content_id = row["id"]
+        content = row["content"]
+        created_at = row["created_at"]
+        
+        # 标记为已使用
+        now = datetime.now(ZoneInfo('Asia/Shanghai')).isoformat()
+        cursor.execute("UPDATE shipment_contents SET is_used = 1, used_at = ? WHERE id = ?", (now, content_id))
+        
+        # 更新统计
+        cursor.execute("UPDATE site_stats SET visit_count = visit_count + 1, updated_at = ? WHERE id = 1", (now,))
+        
+        conn.commit()
+        
+        # 返回纯文本内容
+        return PlainTextResponse(content + "\n您的订单内容请及时确24小时内存在问题请联系管理员！")
+
+@app.get("/api/shipment/stats", tags=["发货标签管理"])
+def get_shipment_stats(key: str = Depends(get_valid_key)):
+    """【用户】获取发货标签统计信息"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        
+        # 总体统计
+        cursor.execute('''
+            SELECT 
+                COUNT(*) as total,
+                SUM(CASE WHEN is_used = 1 THEN 1 ELSE 0 END) as used,
+                SUM(CASE WHEN is_used = 0 THEN 1 ELSE 0 END) as unused
+            FROM shipment_contents
+            WHERE owner_key = ?
+        ''', (key,))
+        total_stats = cursor.fetchone()
+        
+        # 分类统计
+        cursor.execute('''
+            SELECT 
+                c.id as category_id,
+                c.name as category_name,
+                COUNT(s.id) as total,
+                SUM(CASE WHEN s.is_used = 1 THEN 1 ELSE 0 END) as used,
+                SUM(CASE WHEN s.is_used = 0 THEN 1 ELSE 0 END) as unused
+            FROM shipment_categories c
+            LEFT JOIN shipment_contents s ON c.id = s.category_id AND s.owner_key = ?
+            WHERE c.owner_key = ?
+            GROUP BY c.id
+        ''', (key, key))
+        category_stats = cursor.fetchall()
+        
+        return {
+            "total_contents": total_stats["total"] or 0,
+            "used_contents": total_stats["used"] or 0,
+            "unused_contents": total_stats["unused"] or 0,
+            "category_stats": [
+                {
+                    "category_id": row["category_id"],
+                    "category_name": row["category_name"],
+                    "total": row["total"] or 0,
+                    "used": row["used"] or 0,
+                    "unused": row["unused"] or 0
+                }
+                for row in category_stats
+            ]
+        }
+
 # SPA Route Handling
 FRONTEND_DIST = os.path.join(os.path.dirname(BASE_DIR), "frontend", "dist")
 
@@ -3008,6 +3729,250 @@ async def shutdown_event():
     """应用关闭时执行"""
     scheduler.shutdown()
     print("[SHUTDOWN] OK Cookie自动刷新任务已停止")
+
+
+
+
+# ==================== 发货标签 API ====================
+
+@app.get("/api/shipment/categories", response_model=List[ShipmentCategoryResponse], tags=["发货标签"])
+def get_shipment_categories(key: str = Depends(get_valid_key)):
+    """获取所有发货标签分类"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT c.*, COUNT(sc.id) as content_count
+            FROM shipment_categories c
+            LEFT JOIN shipment_contents sc ON c.id = sc.category_id AND sc.owner_key = ?
+            WHERE c.owner_key = ?
+            GROUP BY c.id
+            ORDER BY c.created_at DESC
+        ''', (key, key))
+        rows = cursor.fetchall()
+        return [
+            {
+                "id": row["id"],
+                "name": row["name"],
+                "description": row["description"],
+                "content_count": row["content_count"],
+                "created_at": row["created_at"]
+            }
+            for row in rows
+        ]
+
+@app.get("/api/shipment/categories/add", tags=["发货标签"])
+def add_shipment_category(key: str = Depends(get_valid_key), name: str = Query(...), description: Optional[str] = Query(None)):
+    """添加发货标签分类"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        now = datetime.now(ZoneInfo('Asia/Shanghai')).isoformat()
+        cursor.execute('''
+            INSERT INTO shipment_categories (name, description, owner_key, created_at)
+            VALUES (?, ?, ?, ?)
+        ''', (name, description, key, now))
+        conn.commit()
+        return {"success": True, "message": "分类添加成功", "id": cursor.lastrowid}
+
+@app.get("/api/shipment/categories/update", tags=["发货标签"])
+def update_shipment_category(key: str = Depends(get_valid_key), id: int = Query(...), name: Optional[str] = Query(None), description: Optional[str] = Query(None)):
+    """更新发货标签分类"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        updates = []
+        params = []
+        if name:
+            updates.append("name = ?")
+            params.append(name)
+        if description is not None:
+            updates.append("description = ?")
+            params.append(description)
+        
+        if updates:
+            params.append(id)
+            params.append(key)
+            cursor.execute(f"UPDATE shipment_categories SET {', '.join(updates)} WHERE id = ? AND owner_key = ?", params)
+            conn.commit()
+        return {"success": True, "message": "分类更新成功"}
+
+@app.get("/api/shipment/categories/delete", tags=["发货标签"])
+def delete_shipment_category(key: str = Depends(get_valid_key), id: int = Query(...)):
+    """删除发货标签分类（不删除内容，内容变为未分类）"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        # 将该分类下的内容设为未分类 (category_id = NULL)
+        cursor.execute("UPDATE shipment_contents SET category_id = NULL WHERE category_id = ? AND owner_key = ?", (id, key))
+        # 删除分类
+        cursor.execute("DELETE FROM shipment_categories WHERE id = ? AND owner_key = ?", (id, key))
+        conn.commit()
+        return {"success": True, "message": "分类删除成功"}
+
+@app.get("/api/shipment/contents", response_model=List[ShipmentContentResponse], tags=["发货标签"])
+def get_shipment_contents(
+    key: str = Depends(get_valid_key), 
+    category_id: Optional[int] = Query(None),
+    is_used: Optional[bool] = Query(None)
+):
+    """获取发货标签内容列表"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        query = '''
+            SELECT sc.*, c.name as category_name
+            FROM shipment_contents sc
+            LEFT JOIN shipment_categories c ON sc.category_id = c.id
+            WHERE sc.owner_key = ?
+        '''
+        params = [key]
+        
+        if category_id is not None:
+            if category_id == -1: # 未分类
+                query += " AND sc.category_id IS NULL"
+            else:
+                query += " AND sc.category_id = ?"
+                params.append(category_id)
+        
+        if is_used is not None:
+            query += " AND sc.is_used = ?"
+            params.append(1 if is_used else 0)
+            
+        query += " ORDER BY sc.created_at DESC"
+        
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        return [
+            {
+                "id": row["id"],
+                "content": row["content"],
+                "category_id": row["category_id"],
+                "category_name": row["category_name"],
+                "is_used": bool(row["is_used"]),
+                "created_at": row["created_at"],
+                "used_at": row["used_at"]
+            }
+            for row in rows
+        ]
+
+@app.get("/api/shipment/contents/add", tags=["发货标签"])
+def add_shipment_content(key: str = Depends(get_valid_key), content: str = Query(...), category_id: Optional[int] = Query(None)):
+    """添加单个内容"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        now = datetime.now(ZoneInfo('Asia/Shanghai')).isoformat()
+        cursor.execute('''
+            INSERT INTO shipment_contents (content, category_id, owner_key, created_at, is_used)
+            VALUES (?, ?, ?, ?, 0)
+        ''', (content, category_id, key, now))
+        conn.commit()
+        return {"success": True, "message": "内容添加成功"}
+
+@app.post("/api/shipment/contents/batch-add", tags=["发货标签"])
+def batch_add_shipment_contents(request: BatchShipmentContentRequest):
+    """批量添加内容"""
+    if not validate_auth_key(request.key):
+        raise HTTPException(status_code=401, detail="授权码无效")
+    
+    with get_db() as conn:
+        cursor = conn.cursor()
+        now = datetime.now(ZoneInfo('Asia/Shanghai')).isoformat()
+        count = 0
+        for content in request.contents:
+            if not content.strip(): continue
+            cursor.execute('''
+                INSERT INTO shipment_contents (content, category_id, owner_key, created_at, is_used)
+                VALUES (?, ?, ?, ?, 0)
+            ''', (content.strip(), request.category_id, request.key, now))
+            count += 1
+        conn.commit()
+        return {"success": True, "message": f"成功添加 {count} 条内容"}
+
+@app.get("/api/shipment/contents/delete", tags=["发货标签"])
+def delete_shipment_content(key: str = Depends(get_valid_key), id: int = Query(...)):
+    """删除内容"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM shipment_contents WHERE id = ? AND owner_key = ?", (id, key))
+        conn.commit()
+        return {"success": True, "message": "删除成功"}
+
+@app.get("/api/shipment/contents/reset", tags=["发货标签"])
+def reset_shipment_content(key: str = Depends(get_valid_key), id: int = Query(...)):
+    """重置内容状态为未使用"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE shipment_contents SET is_used = 0, used_at = NULL WHERE id = ? AND owner_key = ?", (id, key))
+        conn.commit()
+        return {"success": True, "message": "重置成功"}
+
+@app.get("/api/shipment/get", response_class=PlainTextResponse, tags=["发货标签"])
+def get_shipment_label(key: str = Depends(get_valid_key), category_id: Optional[int] = Query(None)):
+    """获取并发放一个内容"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        query = "SELECT id, content FROM shipment_contents WHERE is_used = 0 AND owner_key = ?"
+        params = [key]
+        if category_id is not None:
+            query += " AND category_id = ?"
+            params.append(category_id)
+        
+        # 简单随机获取 (SQLite random)
+        query += " ORDER BY RANDOM() LIMIT 1"
+        
+        cursor.execute(query, params)
+        row = cursor.fetchone()
+        
+        if not row:
+            return Response(content="暂无可用内容", status_code=404)
+        
+        now = datetime.now(ZoneInfo('Asia/Shanghai')).isoformat()
+        cursor.execute("UPDATE shipment_contents SET is_used = 1, used_at = ? WHERE id = ?", (now, row["id"]))
+        conn.commit()
+        
+        return row["content"] + "\n您的订单内容请及时确认,24小时内存在问题请联系管理员！"
+
+@app.get("/api/shipment/stats", tags=["发货标签"])
+def get_shipment_stats(key: str = Depends(get_valid_key)):
+    """获取统计信息"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        
+        # 总统计
+        cursor.execute('''
+            SELECT 
+                COUNT(*) as total,
+                SUM(CASE WHEN is_used = 1 THEN 1 ELSE 0 END) as used
+            FROM shipment_contents WHERE owner_key = ?
+        ''', (key,))
+        row = cursor.fetchone()
+        total = row["total"] or 0
+        used = row["used"] or 0
+        
+        # 分类统计
+        cursor.execute('''
+            SELECT c.id, c.name, COUNT(sc.id) as total,
+                   SUM(CASE WHEN sc.is_used = 1 THEN 1 ELSE 0 END) as used
+            FROM shipment_categories c
+            LEFT JOIN shipment_contents sc ON c.id = sc.category_id AND sc.owner_key = ?
+            WHERE c.owner_key = ?
+            GROUP BY c.id
+        ''', (key, key))
+        cat_rows = cursor.fetchall()
+        
+        category_stats = [
+            {
+                "category_id": r["id"],
+                "category_name": r["name"],
+                "total": r["total"],
+                "used": r["used"] or 0,
+                "unused": r["total"] - (r["used"] or 0)
+            }
+            for r in cat_rows
+        ]
+        
+        return {
+            "total_contents": total,
+            "used_contents": used,
+            "unused_contents": total - used,
+            "category_stats": category_stats
+        }
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8999)
