@@ -305,8 +305,6 @@ EOF
 
     # 确保必要目录
     mkdir -p "$SSL_DIR"
-    mkdir -p "$PROJECT_ROOT/backend/cookies"
-
     log_success "环境配置完成"
 
     # ------------------------------------------

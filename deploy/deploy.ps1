@@ -276,9 +276,6 @@ SSL_ENABLED=false
 
     # 确保必要目录
     if (-not (Test-Path $SSLDir))  { New-Item -ItemType Directory -Path $SSLDir -Force | Out-Null }
-    $cookiesDir = Join-Path $ProjectRoot "backend\cookies"
-    if (-not (Test-Path $cookiesDir)) { New-Item -ItemType Directory -Path $cookiesDir -Force | Out-Null }
-
     Write-Ok "环境配置完成"
 
     Pop-Location

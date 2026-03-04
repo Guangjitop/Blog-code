@@ -42,7 +42,7 @@ python -m http.server 8080
 
 | 服务 | 地址 | 说明 |
 |------|------|------|
-| 首页 | http://localhost:8080 | 开发者主页（带音乐播放器） |
+| 首页 | http://localhost:8080 | 开发者主页 |
 | 前端应用 | http://localhost:5173 | React 管理界面 |
 | 后端 API | http://localhost:8000 | FastAPI 接口 |
 | API 文档 | http://localhost:8000/docs | Swagger UI |
@@ -762,22 +762,6 @@ npm run dev
 # API文档: http://localhost:8000/docs
 ```
 
-### 首页音乐播放器
-
-首页支持本地音乐播放，将音乐文件放入 `Home/musics/` 目录即可：
-
-```bash
-# 添加音乐后，运行脚本更新播放列表
-cd Home
-python generate_playlist.py
-```
-
-支持格式：MP3、FLAC、WAV、OGG、AAC、M4A、WEBM
-
-文件命名建议：`艺术家 - 歌曲名.格式`（如 `周杰伦 - 晴天.mp3`）
-
----
-
 ## 注意事项
 
 ⚠️ **重要提示**:
@@ -794,7 +778,6 @@ python generate_playlist.py
 - [Docker 部署详细指南](deploy/README.md)
 - [SSL 证书配置说明](deploy/SSL证书配置说明.md)
 - [API 文档](backend/API_DOC.md)
-- [音乐 API 指南](backend/MUSIC_API_GUIDE.md)
 
 ---
 

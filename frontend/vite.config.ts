@@ -26,7 +26,7 @@ function serveHomePlugin(): Plugin {
           }
         }
 
-        // 对于 /app/js/*, /app/musics/* 等静态资源
+        // 对于 /app/js/* 等静态资源
         if (req.url?.startsWith('/app/') && !req.url?.startsWith('/app/manage')) {
           const relativePath = req.url.replace('/app/', '')
           const filePath = path.join(homeDir, relativePath)
@@ -41,8 +41,6 @@ function serveHomePlugin(): Plugin {
               '.svg': 'image/svg+xml',
               '.png': 'image/png',
               '.jpg': 'image/jpeg',
-              '.mp3': 'audio/mpeg',
-              '.flac': 'audio/flac',
             }
             res.setHeader('Content-Type', mimeTypes[ext] || 'application/octet-stream')
             res.end(fs.readFileSync(filePath))

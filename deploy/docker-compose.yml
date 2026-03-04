@@ -6,27 +6,6 @@
 version: '3.8'
 
 services:
-  # NeteaseCloudMusicApi 音乐服务（可选，如果已有外部音乐API可注释掉）
-  # music-api:
-  #   build:
-  #     context: ..
-  #     dockerfile: deploy/Dockerfile.music-api
-  #   image: binaryify/netease_cloud_music_api:latest
-  #   container_name: netease-music-api
-  #   ports:
-  #     - "3000:3000"
-  #   environment:
-  #     - PORT=3000
-  #   networks:
-  #     - app-network
-  #   restart: unless-stopped
-  #   healthcheck:
-  #     test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000"]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 3
-  #     start_period: 10s
-
   # Nginx 反向代理 + 前端静态文件（映射8998端口）
   nginx:
     build:
@@ -45,13 +24,8 @@ services:
     depends_on:
       backend:
         condition: service_healthy
-      # music-api:
-      #   condition: service_healthy
     networks:
       - app-network
-    # 允许nginx访问宿主机上的服务（如音乐API的3000端口）
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/"]
@@ -70,18 +44,10 @@ services:
       - "8999:8998"  # 核心新增：宿主机8999 → 容器8998（匹配后端运行端口）
     environment:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin121}
-      - NETEASE_COOKIE=${NETEASE_COOKIE:-}
-      - NETEASE_API_BASE=${NETEASE_API_BASE:-http://music-api:3000}
-      # 音乐API地址配置（优先使用外部API，如果本地没有music-api服务）
-      - METING_API_URL=${METING_API_URL:-http://107.174.140.100:3000/,http://host.docker.internal:3000/}
     volumes:
       - ../backend/accounts.db:/app/accounts.db
-      - ../backend/cookies:/app/cookies
     networks:
       - app-network
-    # 如果音乐服务在宿主机上，需要添加extra_hosts以访问宿主机
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8998/docs"]  # 保持和后端端口一致

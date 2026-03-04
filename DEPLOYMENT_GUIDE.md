@@ -140,8 +140,6 @@ vim deploy/.env
 ```env
 DOMAIN=your-domain.com          # 你的域名
 ADMIN_PASSWORD=your-password    # 管理员密码 (务必修改!)
-METING_API_URL=http://...       # 音乐 API 地址 (可选)
-NETEASE_COOKIE=...              # 网易云 Cookie (可选)
 ```
 
 ### 步骤 3: 部署
@@ -464,5 +462,4 @@ Blog-code/
 |------|------|------|
 | 80 / 8998 | Nginx | 前端页面 + API 反向代理 |
 | 8999 | FastAPI | 后端 API (宿主机映射, 容器内 8998) |
-| 3000 | Music API | 音乐服务 (可选) |
 | 443 | Nginx | HTTPS (启用 SSL 后) |

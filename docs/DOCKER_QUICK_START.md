@@ -7,7 +7,6 @@
    - 确保 Docker Desktop 正在运行
 
 2. 确保以下端口未被占用：
-   - `3000` - 音乐API服务
    - `8998` - 前端（Nginx）
    - `8999` - 后端API
 
@@ -52,20 +51,14 @@ docker-compose down
 - **前端首页**: http://localhost:8998/
 - **管理后台**: http://localhost:8998/app/
 - **后端API文档**: http://localhost:8999/docs
-- **音乐API**: http://localhost:3000/
-- **健康检查**: http://localhost:8999/api/music/health
 
 ## 服务说明
 
-### 1. music-api (端口3000)
-- 网易云音乐API代理服务
-- 提供音乐搜索、歌单、歌词等功能
-
-### 2. backend (端口8999)
+### 1. backend (端口8999)
 - FastAPI后端服务
-- 提供账号管理和音乐API代理
+- 提供账号管理API
 
-### 3. nginx (端口8998)
+### 2. nginx (端口8998)
 - 前端静态文件服务
 - 反向代理
 
@@ -78,8 +71,6 @@ docker-compose ps
 # 查看特定服务的日志
 docker-compose logs backend
 docker-compose logs nginx
-docker-compose logs music-api
-
 # 重启特定服务
 docker-compose restart backend
 
@@ -111,14 +102,7 @@ ports:
 docker-compose logs [service-name]
 ```
 
-### 3. 音乐API无法访问
-
-检查健康状态：
-```cmd
-curl http://localhost:8999/api/music/health
-```
-
-### 4. 前端无法连接后端
+### 3. 前端无法连接后端
 
 确保：
 1. 后端服务正在运行：`docker-compose ps`
@@ -147,12 +131,6 @@ docker-compose restart backend
 ```env
 # 管理员密码
 ADMIN_PASSWORD=your_password
-
-# 音乐API地址
-METING_API_URL=http://music-api:3000/
-
-# 环境标识
-ENVIRONMENT=production
 ```
 
 ## 数据持久化

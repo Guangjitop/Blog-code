@@ -217,5 +217,5 @@ _show-urls:
 	@echo "  前端首页:    http://localhost:8998/"
 	@echo "  管理后台:    http://localhost:8998/app/"
 	@echo "  后端API:     http://localhost:8999/docs"
-	@echo "  健康检查:    http://localhost:8999/api/music/health"
+	@echo "  健康检查:    http://localhost:8999/docs"
 	@echo "=========================================="
