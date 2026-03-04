@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Package, Plus, Trash2, RefreshCw, Layers, Upload, AlertCircle, ShieldCheck, Code, FileText } from "lucide-react";
+import { Package, Plus, Trash2, RefreshCw, Layers, Upload, AlertCircle, ShieldCheck, Code } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
 
 // 类型定义

@@ -31,3 +31,7 @@ backend/static/nul
 
 # Logs
 *.log
+
+# Cascade/Windsurf
+codechat/
+.windsurfrules
