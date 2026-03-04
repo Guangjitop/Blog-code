@@ -34,7 +34,8 @@ services:
       dockerfile: deploy/Dockerfile.frontend
     container_name: account-nginx
     ports:
-      - "8998:80"  # 核心修改：默认8998端口（替代原来的80）
+      - "80:80"    # Cloudflare / 外部访问
+      - "8998:80"  # 本地直接访问
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
