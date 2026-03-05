@@ -14,6 +14,8 @@
 - [端口配置说明](#端口配置说明)
 - [从零开始部署](#从零开始部署)
 - [API 接口说明](#api-接口说明)
+- [域名配置指南](#域名配置指南)
+- [Make 命令参考](#make-命令参考)
 - [开发环境](#开发环境)
 
 ---
@@ -656,6 +658,174 @@ cp backend/accounts.db backup/accounts_$(date +%Y%m%d).db
 
 # 备份 SSL 证书（方案A）
 tar -czf ssl-backup-$(date +%Y%m%d).tar.gz deploy/ssl/
+```
+
+---
+
+## 域名配置指南
+
+本项目使用 Cloudflare 作为 DNS 和 CDN 服务，域名 `blog.mytype.top` 通过 Cloudflare 代理访问源服务器。
+
+### 前置条件
+
+- 一台公网服务器（已部署本项目）
+- 一个域名（如 `mytype.top`）
+- Cloudflare 账号
+
+### 步骤一：将域名托管到 Cloudflare
+
+1. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com/)
+2. 点击 **Add a site**，输入你的域名 `mytype.top`
+3. 选择计划（Free 即可）
+4. Cloudflare 会扫描现有 DNS 记录
+5. 到域名注册商处，将 **Nameserver** 修改为 Cloudflare 提供的 NS 记录：
+   ```
+   例如：
+   ns1.cloudflare.com
+   ns2.cloudflare.com
+   ```
+6. 等待 NS 生效（通常几分钟到 48 小时）
+
+### 步骤二：添加 DNS 记录
+
+在 Cloudflare Dashboard → DNS → Records 中添加：
+
+| 类型 | 名称 | 内容 | 代理状态 | TTL |
+|------|------|------|----------|-----|
+| A | `blog` | `你的服务器IP` | 已代理（橙色云朵） | Auto |
+
+> **注意**：开启代理（Proxied）后，Cloudflare 会自动提供 SSL 证书和 CDN 加速，外部无法直接看到源服务器 IP。
+
+### 步骤三：配置 SSL/TLS
+
+1. 进入 Cloudflare Dashboard → SSL/TLS
+2. 加密模式选择 **Flexible**（源服务器无需 SSL 证书）或 **Full**（源服务器有自签名证书）
+   - 推荐使用 **Flexible**：Cloudflare → 用户之间 HTTPS，Cloudflare → 源服务器之间 HTTP
+   - 如需端到端加密，选择 **Full (Strict)** 并在源服务器配置 SSL 证书
+
+### 步骤四：服务器部署
+
+```bash
+# 1. SSH 连接服务器
+ssh root@你的服务器IP
+
+# 2. 安装 Docker（Ubuntu/Debian）
+curl -fsSL https://get.docker.com | sh
+
+# 3. 安装 make（如未安装）
+apt install make -y
+
+# 4. 克隆项目
+mkdir -p /root/tool && cd /root/tool
+git clone https://github.com/Guangjitop/Blog-code.git
+cd Blog-code
+
+# 5. 一键部署
+make deploy
+```
+
+### 步骤五：验证访问
+
+部署完成后，通过以下地址验证：
+
+| 服务 | 地址 | 说明 |
+|------|------|------|
+| 首页 | `https://blog.mytype.top/` | 通过 Cloudflare 代理访问 |
+| 管理后台 | `https://blog.mytype.top/app/` | React 管理界面 |
+| API 文档 | `https://blog.mytype.top/docs` | Swagger UI |
+| 直连测试 | `http://服务器IP:8998/` | 绕过 Cloudflare 直连 |
+
+### Cloudflare 常用优化配置
+
+- **Speed → Optimization**：开启 Auto Minify（JS/CSS/HTML）
+- **Caching → Configuration**：Browser Cache TTL 设为 4 小时
+- **Security → Settings**：Security Level 设为 Medium
+- **Network**：开启 HTTP/3 (QUIC) 和 WebSockets
+
+### 故障排查
+
+```bash
+# 检查域名是否解析到 Cloudflare
+nslookup blog.mytype.top
+
+# 检查源服务器是否正常
+curl -sI http://服务器IP/
+
+# 检查容器运行状态
+make status
+
+# 查看服务日志
+make logs
+```
+
+---
+
+## Make 命令参考
+
+项目根目录提供了统一的 `Makefile`，封装所有部署和运维操作。在项目根目录下执行 `make <命令>` 即可。
+
+### 部署命令
+
+| 命令 | 说明 |
+|------|------|
+| `make deploy` | **一键部署**（构建镜像 + 启动服务 + 健康检查） |
+| `make deploy-prod` | 生产环境部署（含资源限制） |
+| `make build` | 仅构建 Docker 镜像，不启动 |
+| `make up` | 启动服务（不重新构建） |
+| `make down` | 停止并移除所有容器 |
+| `make restart` | 重启所有服务 |
+| `make update` | 拉取最新代码并重新部署（git pull + deploy） |
+
+### 运维命令
+
+| 命令 | 说明 |
+|------|------|
+| `make status` | 查看容器运行状态 |
+| `make logs` | 查看所有服务日志（实时跟踪） |
+| `make logs-back` | 仅查看后端日志 |
+| `make logs-nginx` | 仅查看 Nginx 日志 |
+| `make health` | 执行健康检查（后端 + 前端） |
+
+### 开发命令
+
+| 命令 | 说明 |
+|------|------|
+| `make dev` | 显示本地开发启动说明 |
+| `make dev-front` | 启动前端开发服务器（npm run dev） |
+| `make dev-back` | 启动后端开发服务器（uvicorn --reload） |
+| `make test` | 运行前端测试 |
+
+### 维护命令
+
+| 命令 | 说明 |
+|------|------|
+| `make ssl` | 申请或续期 SSL 证书 |
+| `make backup` | 备份数据库到 backups/ 目录 |
+| `make clean` | 清理 Docker 悬挂镜像和构建缓存 |
+| `make env` | 从 `.env.example` 创建 `.env` 配置文件 |
+| `make help` | 显示所有可用命令列表 |
+
+### 常用操作示例
+
+```bash
+# 首次部署
+make deploy
+
+# 代码更新后重新部署
+make update
+
+# 查看服务状态和健康检查
+make status
+make health
+
+# 查看后端日志排查问题
+make logs-back
+
+# 停止所有服务
+make down
+
+# 清理 Docker 缓存释放磁盘空间
+make clean
 ```
 
 ---
