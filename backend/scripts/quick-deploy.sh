@@ -91,6 +91,44 @@ else
     exit 1
 fi
 
+# 构建前端（确保拉取代码后前端变更生效）
+print_info "检查前端构建环境..."
+FRONTEND_DIR="$(dirname "$PROJECT_DIR")/frontend"
+
+if [ -d "$FRONTEND_DIR" ]; then
+    if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
+        print_info "检测到 Node.js，开始构建前端..."
+        pushd "$FRONTEND_DIR" >/dev/null
+
+        if [ ! -d "node_modules" ]; then
+            print_info "安装前端依赖..."
+            npm ci || npm install || {
+                print_error "前端依赖安装失败"
+                popd >/dev/null
+                exit 1
+            }
+        fi
+
+        print_info "执行前端构建..."
+        npm run build || {
+            print_error "前端构建失败"
+            popd >/dev/null
+            exit 1
+        }
+        popd >/dev/null
+        print_info "前端构建完成"
+    else
+        if [ -f "$(dirname "$PROJECT_DIR")/frontend/dist/index.html" ]; then
+            print_warning "未检测到 Node.js/npm，跳过前端构建，将使用现有 dist 产物"
+        else
+            print_error "未检测到 Node.js/npm，且不存在 frontend/dist，无法继续部署"
+            exit 1
+        fi
+    fi
+else
+    print_warning "未找到前端目录: $FRONTEND_DIR，跳过前端构建"
+fi
+
 # 设置脚本执行权限
 print_info "设置脚本执行权限..."
 chmod +x "$SCRIPT_DIR/deploy.sh"
