@@ -215,7 +215,7 @@ _show-urls:
 	@echo "  服务已启动"
 	@echo "=========================================="
 	@echo "  前端首页:    http://localhost:8998/"
-	@echo "  管理后台:    http://localhost:8998/app/"
+	@echo "  管理后台:    http://localhost:8998/app/manage/"
 	@echo "  后端API:     http://localhost:8999/docs"
 	@echo "  健康检查:    http://localhost:8999/docs"
 	@echo "=========================================="
