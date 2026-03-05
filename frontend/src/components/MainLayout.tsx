@@ -13,13 +13,13 @@ export function MainLayout({ children, userType }: MainLayoutProps) {
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
         {userType === 'admin' ? (
           <>
-            <div className="absolute top-[-10%] left-[-5%] w-[500px] h-[500px] rounded-full bg-orange-500/5 blur-[100px]" />
-            <div className="absolute bottom-[-10%] right-[-5%] w-[500px] h-[500px] rounded-full bg-red-500/5 blur-[100px]" />
+            <div className="absolute top-[-10%] left-[-5%] w-[500px] h-[500px] rounded-full bg-blue-500/5 blur-[100px]" />
+            <div className="absolute bottom-[-10%] right-[-5%] w-[500px] h-[500px] rounded-full bg-indigo-500/5 blur-[100px]" />
           </>
         ) : (
           <>
-            <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] rounded-full bg-primary/5 blur-[100px]" />
-            <div className="absolute bottom-[-10%] left-[-5%] w-[500px] h-[500px] rounded-full bg-blue-500/5 blur-[100px]" />
+            <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] rounded-full bg-blue-500/5 blur-[100px]" />
+            <div className="absolute bottom-[-10%] left-[-5%] w-[500px] h-[500px] rounded-full bg-purple-500/5 blur-[100px]" />
           </>
         )}
         {/* Grid Pattern */}

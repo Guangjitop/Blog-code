@@ -36,6 +36,14 @@ export function Sidebar({ userType }: SidebarProps) {
       { id: 'shipment', label: '发货标签', icon: Package, path: '/user/shipment' }
     ]
 
+  const gradientClass = userType === 'admin' 
+    ? "from-blue-600 to-indigo-600" 
+    : "from-blue-600 to-purple-600"
+
+  const iconColorClass = userType === 'admin'
+    ? "text-indigo-600"
+    : "text-purple-600"
+
   const handleLogout = async () => {
     try {
       if (userType === 'admin') {
@@ -65,7 +73,7 @@ export function Sidebar({ userType }: SidebarProps) {
       <div className="h-20 flex items-center px-4 border-b border-border/40 relative z-10">
         {!isCollapsed && (
           <div className="flex items-center gap-3 flex-1 min-w-0 animate-in fade-in slide-in-from-left-4 duration-300">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center shadow-lg shadow-primary/20 flex-shrink-0">
+            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${gradientClass} flex items-center justify-center shadow-lg shadow-primary/20 flex-shrink-0`}>
               <LayoutDashboard className="h-5 w-5 text-white" />
             </div>
             <div className="flex flex-col">
@@ -113,7 +121,7 @@ export function Sidebar({ userType }: SidebarProps) {
               {({ isActive }) => (
                 <>
                   {isActive && (
-                    <div className="absolute inset-0 bg-gradient-to-r from-primary to-blue-600 rounded-xl" />
+                    <div className={`absolute inset-0 bg-gradient-to-r ${gradientClass} rounded-xl`} />
                   )}
                   <Icon className={cn("h-5 w-5 flex-shrink-0 relative z-10 transition-transform duration-300 group-hover:scale-110", isActive && "text-white")} />
                   {!isCollapsed && (
@@ -157,7 +165,7 @@ export function Sidebar({ userType }: SidebarProps) {
         {!isCollapsed && (
           <div className="p-3 rounded-xl bg-gradient-to-br from-primary/5 to-blue-500/5 border border-primary/10">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+              <div className={`w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center ${iconColorClass}`}>
                 {userType === 'admin' ? <Key className="h-4 w-4" /> : <Users className="h-4 w-4" />}
               </div>
               <div className="flex-1 min-w-0">

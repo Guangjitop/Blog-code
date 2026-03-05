@@ -268,18 +268,17 @@ export function ShipmentManager({ authKey }: ShipmentManagerProps) {
         toast.success("已复制到剪贴板");
     };
 
-    const StatCard = ({ title, value, label, icon: Icon, gradient }: any) => (
-        <Card className="relative overflow-hidden border-0 shadow-lg group hover:shadow-xl transition-all duration-300 bg-card/50 backdrop-blur-sm">
-            <div className={cn("absolute inset-0 opacity-10 transition-opacity group-hover:opacity-20", gradient)} />
-            <CardHeader className="flex flex-row items-center justify-between pb-2 relative z-10">
-                <CardTitle className="text-sm font-medium text-muted-foreground/80 tracking-wide uppercase">{title}</CardTitle>
-                <div className="p-2 rounded-lg bg-background/50 backdrop-blur-sm shadow-sm transition-transform group-hover:scale-110 duration-300">
-                    <Icon className="w-4 h-4 text-foreground/80" />
+    const StatCard = ({ title, value, label, icon: Icon, iconColor, iconBg }: any) => (
+        <Card className="border shadow-sm bg-card/50 hover:shadow-md transition-all duration-200">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+                <div className={cn("p-2 rounded-lg", iconBg)}>
+                    <Icon className={cn("w-4 h-4", iconColor)} />
                 </div>
             </CardHeader>
-            <CardContent className="relative z-10">
-                <div className="text-3xl font-bold tracking-tight mb-1 tabular-nums">{value.toLocaleString()}</div>
-                <p className="text-xs text-muted-foreground font-medium">{label}</p>
+            <CardContent>
+                <div className="text-2xl font-bold tracking-tight mb-1 tabular-nums">{value.toLocaleString()}</div>
+                <p className="text-xs text-muted-foreground">{label}</p>
             </CardContent>
         </Card>
     );
@@ -288,7 +287,7 @@ export function ShipmentManager({ authKey }: ShipmentManagerProps) {
         <div className="space-y-8 animate-in fade-in-50 duration-500">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-card/50 backdrop-blur-sm p-6 rounded-2xl border border-border/50 shadow-sm">
                 <div className="space-y-1">
-                    <h1 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-cyan-500">
+                    <h1 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
                         发货内容管理
                     </h1>
                     <p className="text-muted-foreground text-sm flex items-center gap-2">
@@ -322,7 +321,8 @@ export function ShipmentManager({ authKey }: ShipmentManagerProps) {
                                 value={stats.total_contents} 
                                 label={`可用: ${stats.unused_contents} / 已用: ${stats.used_contents}`}
                                 icon={Package}
-                                gradient="bg-gradient-to-br from-blue-500 to-indigo-500"
+                                iconColor="text-blue-600 dark:text-blue-400"
+                                iconBg="bg-blue-100 dark:bg-blue-900/20"
                             />
                             {stats.category_stats && Array.isArray(stats.category_stats) && stats.category_stats.slice(0, 3).map((cat, i) => (
                                 <StatCard
@@ -331,14 +331,15 @@ export function ShipmentManager({ authKey }: ShipmentManagerProps) {
                                     value={cat.unused}
                                     label="剩余可用数量"
                                     icon={Layers}
-                                    gradient={`bg-gradient-to-br ${i === 0 ? 'from-emerald-500 to-teal-500' : i === 1 ? 'from-amber-500 to-orange-500' : 'from-purple-500 to-pink-500'}`}
+                                    iconColor={i === 0 ? "text-emerald-600 dark:text-emerald-400" : i === 1 ? "text-amber-600 dark:text-amber-400" : "text-purple-600 dark:text-purple-400"}
+                                    iconBg={i === 0 ? "bg-emerald-100 dark:bg-emerald-900/20" : i === 1 ? "bg-amber-100 dark:bg-amber-900/20" : "bg-purple-100 dark:bg-purple-900/20"}
                                 />
                             ))}
                         </div>
                     )}
 
                     {/* 操作栏 */}
-                    <Card className="border-0 shadow-lg bg-card/50 backdrop-blur-sm">
+                    <Card className="border shadow-sm bg-card/50 backdrop-blur-sm">
                         <CardContent className="p-6">
                             <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
                                 <div className="flex gap-2 items-center w-full md:w-auto">
@@ -432,7 +433,7 @@ export function ShipmentManager({ authKey }: ShipmentManagerProps) {
                     </Card>
 
                     {/* 内容表格 */}
-                    <Card className="border-0 shadow-lg bg-card/50 backdrop-blur-sm overflow-hidden">
+                    <Card className="border shadow-sm bg-card/50 backdrop-blur-sm overflow-hidden">
                         <CardContent className="p-0">
                             <div className="max-h-[600px] overflow-y-auto scrollbar-custom">
                                 <Table>
@@ -470,12 +471,12 @@ export function ShipmentManager({ authKey }: ShipmentManagerProps) {
                                                         )}
                                                     </TableCell>
                                                     <TableCell>
-                                                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border ${
                                                             item.is_used 
-                                                                ? 'bg-amber-500/10 text-amber-600 border-amber-200/20' 
+                                                                ? 'bg-red-500/10 text-red-600 border-red-200/20' 
                                                                 : 'bg-emerald-500/10 text-emerald-600 border-emerald-200/20'
                                                         }`}>
-                                                            <span className={`w-1.5 h-1.5 rounded-full ${item.is_used ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                                                            <span className={`w-1.5 h-1.5 rounded-full ${item.is_used ? 'bg-red-500' : 'bg-emerald-500'}`} />
                                                             {item.is_used ? "已使用" : "未使用"}
                                                         </span>
                                                         {item.is_used && item.used_at && (
@@ -510,7 +511,7 @@ export function ShipmentManager({ authKey }: ShipmentManagerProps) {
 
                 {/* TAB 2: 分类管理 */}
                 <TabsContent value="categories" className="space-y-6 animate-in fade-in-50 slide-in-from-bottom-2 duration-500">
-                    <Card className="border-0 shadow-lg bg-card/50 backdrop-blur-sm">
+                    <Card className="border shadow-sm bg-card/50 backdrop-blur-sm">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <Layers className="w-5 h-5 text-primary" />
@@ -582,7 +583,7 @@ export function ShipmentManager({ authKey }: ShipmentManagerProps) {
 
                 {/* TAB 3: 获取内容 */}
                 <TabsContent value="get" className="space-y-6 animate-in fade-in-50 slide-in-from-bottom-2 duration-500">
-                    <Card className="border-0 shadow-lg bg-card/50 backdrop-blur-sm">
+                    <Card className="border shadow-sm bg-card/50 backdrop-blur-sm">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <ShieldCheck className="w-5 h-5 text-primary" />
@@ -617,7 +618,7 @@ export function ShipmentManager({ authKey }: ShipmentManagerProps) {
 
                 {/* TAB 4: API 文档 */}
                 <TabsContent value="api" className="space-y-6 animate-in fade-in-50 slide-in-from-bottom-2 duration-500">
-                    <Card className="border-0 shadow-lg bg-card/50 backdrop-blur-sm">
+                    <Card className="border shadow-sm bg-card/50 backdrop-blur-sm">
                         <CardHeader className="border-b border-border/40 pb-4">
                             <div className="flex items-center gap-2">
                                 <Code className="w-5 h-5 text-primary" />

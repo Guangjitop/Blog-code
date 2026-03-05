@@ -45,8 +45,8 @@ export default function UserLogin() {
       
       {/* Dynamic Background Elements - Matching Dashboard Theme */}
       <div className="fixed inset-0 z-0 pointer-events-none">
-        <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] rounded-full bg-primary/10 blur-[100px] animate-pulse" />
-        <div className="absolute bottom-[-10%] left-[-5%] w-[500px] h-[500px] rounded-full bg-blue-500/10 blur-[100px] animate-pulse delay-1000" />
+        <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] rounded-full bg-blue-500/5 blur-[100px] animate-pulse" />
+        <div className="absolute bottom-[-10%] left-[-5%] w-[500px] h-[500px] rounded-full bg-purple-500/5 blur-[100px] animate-pulse delay-1000" />
       </div>
 
       <div className="absolute top-8 left-8 z-20">
@@ -65,14 +65,14 @@ export default function UserLogin() {
 
       <Card className="w-full max-w-md border-0 shadow-2xl bg-card/40 backdrop-blur-xl relative z-10 overflow-hidden ring-1 ring-white/10 dark:ring-white/5 animate-in zoom-in-95 duration-500">
         {/* Decorative Top Highlight */}
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-primary to-purple-500" />
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500" />
         
         <CardHeader className="space-y-4 text-center pb-6 pt-8">
           <div className="flex justify-center mb-2">
             <div className="relative group">
               <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200" />
               <div className="relative p-4 bg-background/80 rounded-2xl ring-1 ring-white/10 shadow-xl">
-                <ShieldCheck className="w-10 h-10 text-primary" />
+                <ShieldCheck className="w-10 h-10 text-blue-600" />
               </div>
             </div>
           </div>
@@ -93,7 +93,7 @@ export default function UserLogin() {
                 授权密钥
               </Label>
               <div className="relative group">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-blue-500 transition-colors">
                   <KeyRound className="w-5 h-5" />
                 </div>
                 <Input
@@ -103,7 +103,7 @@ export default function UserLogin() {
                   value={key}
                   onChange={(e) => setKey(e.target.value)}
                   required
-                  className="pl-10 h-12 bg-background/50 border-input/50 focus:border-primary/50 focus:ring-primary/20 transition-all font-mono text-center tracking-wide placeholder:tracking-normal placeholder:text-muted-foreground/50"
+                  className="pl-10 h-12 bg-background/50 border-input/50 focus:border-blue-500/50 focus:ring-blue-500/20 transition-all font-mono text-center tracking-wide placeholder:tracking-normal placeholder:text-muted-foreground/50"
                   autoComplete="off"
                 />
               </div>
@@ -120,7 +120,7 @@ export default function UserLogin() {
           <CardFooter className="pb-8 pt-2">
             <Button 
               type="submit" 
-              className="w-full h-12 text-base font-medium shadow-lg shadow-primary/25 transition-all hover:scale-[1.02] active:scale-[0.98]" 
+              className="w-full h-12 text-base font-medium shadow-lg shadow-blue-500/25 transition-all hover:scale-[1.02] active:scale-[0.98] bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0" 
               disabled={loading}
               size="lg"
             >

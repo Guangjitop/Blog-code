@@ -115,6 +115,12 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
+      {/* Dynamic Background Elements - Professional Blue/Indigo */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <div className="absolute top-[-10%] left-[-5%] w-[500px] h-[500px] rounded-full bg-blue-500/5 blur-[100px] animate-pulse" />
+        <div className="absolute bottom-[-10%] right-[-5%] w-[500px] h-[500px] rounded-full bg-indigo-500/5 blur-[100px] animate-pulse delay-1000" />
+      </div>
+
       <div className="relative z-10 p-6 md:p-8 max-w-7xl mx-auto space-y-8">
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-card/50 backdrop-blur-sm p-6 rounded-2xl border border-border/50 shadow-sm">
           <div className="space-y-1">
@@ -163,7 +169,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Keys Table */}
-        <Card className="border-0 shadow-lg bg-card/50 backdrop-blur-sm animate-in fade-in-50 slide-in-from-bottom-8 duration-700">
+        <Card className="border shadow-sm bg-card/50 backdrop-blur-sm animate-in fade-in-50 slide-in-from-bottom-8 duration-700">
           <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4">
             <div className="flex items-center gap-2">
               <Activity className="w-5 h-5 text-primary" />
@@ -171,7 +177,7 @@ export default function AdminDashboard() {
             </div>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white border-0 shadow-md">
+                <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white border-0 shadow-md">
                   <Plus className="mr-2 h-4 w-4" />
                   生成新授权
                 </Button>
@@ -179,8 +185,8 @@ export default function AdminDashboard() {
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
-                    <div className="p-2 bg-orange-500/10 rounded-lg">
-                      <Key className="w-5 h-5 text-orange-600" />
+                    <div className="p-2 bg-blue-500/10 rounded-lg">
+                      <Key className="w-5 h-5 text-blue-600" />
                     </div>
                     创建新授权码
                   </DialogTitle>
@@ -252,7 +258,7 @@ export default function AdminDashboard() {
                         <div className="font-medium text-sm">{key.name || "-"}</div>
                       </TableCell>
                       <TableCell>
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border ${
                           key.is_enabled !== false
                             ? 'bg-emerald-500/10 text-emerald-600 border-emerald-200/20'
                             : 'bg-red-500/10 text-red-600 border-red-200/20'

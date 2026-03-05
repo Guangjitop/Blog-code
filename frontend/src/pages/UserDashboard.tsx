@@ -522,7 +522,7 @@ export default function UserDashboard() {
       <div className="relative z-10 p-6 md:p-8 max-w-7xl mx-auto space-y-8">
             <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-card/50 backdrop-blur-sm p-6 rounded-2xl border border-border/50 shadow-sm">
               <div className="space-y-1">
-                <h1 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-blue-600">
+                <h1 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">
                   多账号管理系统
                 </h1>
                 <p className="text-muted-foreground text-sm flex items-center gap-2">
@@ -539,7 +539,7 @@ export default function UserDashboard() {
                   size="icon"
                   onClick={fetchData}
                   title="刷新数据"
-                  className="hover:bg-primary/10 hover:text-primary transition-colors border-border/50"
+                  className="hover:bg-blue-500/10 hover:text-blue-600 transition-colors border-border/50"
                 >
                   <RefreshCw className="h-4 w-4" />
                 </Button>
@@ -554,25 +554,25 @@ export default function UserDashboard() {
                 <TabsList className="bg-transparent border-0 p-0 h-auto gap-1">
                   <TabsTrigger 
                     value="accounts" 
-                    className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary px-4 py-2 rounded-lg transition-all"
+                    className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-blue-600 px-4 py-2 rounded-lg transition-all"
                   >
                     <Users className="h-4 w-4" /> 账号列表
                   </TabsTrigger>
                   <TabsTrigger 
                     value="categories" 
-                    className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary px-4 py-2 rounded-lg transition-all"
+                    className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-purple-600 px-4 py-2 rounded-lg transition-all"
                   >
                     <Layers className="h-4 w-4" /> 分类管理
                   </TabsTrigger>
                   <TabsTrigger 
                     value="get" 
-                    className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary px-4 py-2 rounded-lg transition-all"
+                    className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-emerald-600 px-4 py-2 rounded-lg transition-all"
                   >
                     <ShieldCheck className="h-4 w-4" /> 获取账号
                   </TabsTrigger>
                   <TabsTrigger 
                     value="api" 
-                    className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary px-4 py-2 rounded-lg transition-all"
+                    className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-indigo-600 px-4 py-2 rounded-lg transition-all"
                   >
                     <Code className="h-4 w-4" /> API 文档
                   </TabsTrigger>
@@ -581,7 +581,7 @@ export default function UserDashboard() {
 
               {/* Accounts Tab */}
               <TabsContent value="accounts" className="animate-in fade-in-50 slide-in-from-bottom-2 duration-500">
-                <Card className="border-0 shadow-lg bg-card/50 backdrop-blur-sm">
+                <Card className="border shadow-sm bg-card/50 backdrop-blur-sm">
                   <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4">
                     <div className="flex items-center gap-4">
                       <div>
@@ -989,7 +989,7 @@ export default function UserDashboard() {
                                       <DropdownMenuItem onClick={() => handleToggleAccount(acc.id)}>
                                         {acc.is_enabled !== false ? (
                                           <>
-                                            <Ban className="mr-2 h-4 w-4 text-orange-500" />
+                                            <Ban className="mr-2 h-4 w-4 text-red-500" />
                                             禁用
                                           </>
                                         ) : (
@@ -1027,7 +1027,7 @@ export default function UserDashboard() {
 
               {/* Categories Tab */}
               <TabsContent value="categories" className="animate-in fade-in-50 slide-in-from-bottom-2 duration-500">
-                <Card className="border-0 shadow-lg bg-card/50 backdrop-blur-sm">
+                <Card className="border shadow-sm bg-card/50 backdrop-blur-sm">
                   <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4">
                     <div className="flex items-center gap-2">
                       <Layers className="w-5 h-5 text-primary" />
@@ -1164,7 +1164,7 @@ export default function UserDashboard() {
 
               {/* Get Account Tab */}
               <TabsContent value="get" className="animate-in fade-in-50 slide-in-from-bottom-2 duration-500">
-                <Card className="max-w-xl mx-auto border-0 shadow-lg bg-card/50 backdrop-blur-sm">
+                <Card className="max-w-xl mx-auto border shadow-sm bg-card/50 backdrop-blur-sm">
                   <CardHeader className="text-center border-b border-border/40 pb-6">
                     <div className="flex justify-center mb-4">
                       <div className="p-3 bg-primary/10 rounded-full">
@@ -1224,7 +1224,7 @@ export default function UserDashboard() {
 
               {/* API Tab */}
               <TabsContent value="api" className="animate-in fade-in-50 slide-in-from-bottom-2 duration-500">
-                <Card className="border-0 shadow-lg bg-card/50 backdrop-blur-sm h-full">
+                <Card className="border shadow-sm bg-card/50 backdrop-blur-sm h-full">
                   <CardHeader className="border-b border-border/40 pb-4">
                     <div className="flex items-center gap-2">
                       <Terminal className="w-5 h-5 text-primary" />
