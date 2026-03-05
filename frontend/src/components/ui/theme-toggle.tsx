@@ -36,8 +36,9 @@ export function ThemeToggle() {
           title="切换主题"
         >
           <Palette className="h-4 w-4" />
-          <span className="text-sm hidden sm:inline font-medium">
-            {currentTheme?.icon} {currentTheme?.label}
+          <span className="text-sm hidden sm:inline-flex items-center gap-1.5 font-medium">
+            {currentTheme?.icon}
+            <span>{currentTheme?.label}</span>
           </span>
         </button>
       </DropdownMenuTrigger>
@@ -59,7 +60,7 @@ export function ThemeToggle() {
               key={t.value}
               onClick={() => setTheme(t.value as Theme)}
               className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-150",
+                "group flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-150",
                 isSelected 
                   ? "bg-primary text-primary-foreground" 
                   : "hover:bg-accent"
@@ -72,7 +73,12 @@ export function ThemeToggle() {
               </div>
               
               {/* 图标和标签 */}
-              <span className="text-base">{t.icon}</span>
+              <span className={cn(
+                "flex items-center justify-center w-5 h-5 transition-colors",
+                isSelected ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground"
+              )}>
+                {t.icon}
+              </span>
               <span className="flex-1 text-sm font-medium">{t.label}</span>
               
               {/* 选中指示器 */}

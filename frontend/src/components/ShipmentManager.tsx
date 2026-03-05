@@ -7,8 +7,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Package, Plus, Trash2, RefreshCw, Layers, Upload, AlertCircle, ShieldCheck, Code } from "lucide-react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Package, Plus, Trash2, RefreshCw, Layers, Upload, AlertCircle, ShieldCheck, Code, Copy, Box, Search, Calendar } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
+import { cn } from "@/lib/utils";
 
 // 类型定义
 interface ShipmentCategory {
@@ -70,6 +72,10 @@ export function ShipmentManager({ authKey }: ShipmentManagerProps) {
     const [newContent, setNewContent] = useState("");
     const [selectedCatId, setSelectedCatId] = useState<string>("");
     const [batchContent, setBatchContent] = useState("");
+
+    // 确认弹窗状态
+    const [deleteCatId, setDeleteCatId] = useState<number | null>(null);
+    const [deleteContentId, setDeleteContentId] = useState<number | null>(null);
 
     // API 示例状态
     const [exampleCatId, setExampleCatId] = useState("");
@@ -140,10 +146,10 @@ export function ShipmentManager({ authKey }: ShipmentManagerProps) {
         }
     };
 
-    const handleDeleteCategory = async (id: number) => {
-        if (!confirm("确定删除该分类吗？分类下的内容将变为未分类。")) return;
+    const confirmDeleteCategory = async () => {
+        if (!deleteCatId) return;
         try {
-            const res = await fetch(`${API_BASE}/shipment/categories/delete?key=${encodeURIComponent(authKey)}&id=${id}`);
+            const res = await fetch(`${API_BASE}/shipment/categories/delete?key=${encodeURIComponent(authKey)}&id=${deleteCatId}`);
             const data = await res.json();
             if (data.success) {
                 toast.success("成功: 分类已删除");
@@ -151,7 +157,13 @@ export function ShipmentManager({ authKey }: ShipmentManagerProps) {
             }
         } catch (e) {
             toast.error("失败: 删除失败");
+        } finally {
+            setDeleteCatId(null);
         }
+    };
+
+    const handleDeleteCategory = (id: number) => {
+        setDeleteCatId(id);
     };
 
     const handleAddContent = async () => {
@@ -205,15 +217,23 @@ export function ShipmentManager({ authKey }: ShipmentManagerProps) {
         }
     };
 
-    const handleDeleteContent = async (id: number) => {
-        if (!confirm("确认删除此内容?")) return;
+    const confirmDeleteContent = async () => {
+        if (!deleteContentId) return;
         try {
-            const res = await fetch(`${API_BASE}/shipment/contents/delete?key=${encodeURIComponent(authKey)}&id=${id}`);
+            const res = await fetch(`${API_BASE}/shipment/contents/delete?key=${encodeURIComponent(authKey)}&id=${deleteContentId}`);
             if (await res.json().then(d => d.success)) {
                 toast.success("已删除: 内容删除成功");
                 fetchData();
             }
-        } catch (e) { }
+        } catch (e) { 
+            toast.error("失败: 内容删除失败");
+        } finally {
+            setDeleteContentId(null);
+        }
+    };
+
+    const handleDeleteContent = (id: number) => {
+        setDeleteContentId(id);
     };
 
     const handleResetContent = async (id: number) => {
@@ -235,374 +255,488 @@ export function ShipmentManager({ authKey }: ShipmentManagerProps) {
             const res = await fetch(`${API_BASE}/shipment/get?${params.toString()}`);
             if (res.ok) {
                 const text = await res.text();
-                alert(`获取到的内容: ${text}`);
+                toast.success(`获取到的内容: ${text}`);
                 fetchData();
             } else {
-                alert("没有可用内容");
+                toast.error("没有可用内容");
             }
         } catch (e) { }
     };
 
+    const copyToClipboard = (text: string) => {
+        navigator.clipboard.writeText(text);
+        toast.success("已复制到剪贴板");
+    };
+
+    const StatCard = ({ title, value, label, icon: Icon, gradient }: any) => (
+        <Card className="relative overflow-hidden border-0 shadow-lg group hover:shadow-xl transition-all duration-300 bg-card/50 backdrop-blur-sm">
+            <div className={cn("absolute inset-0 opacity-10 transition-opacity group-hover:opacity-20", gradient)} />
+            <CardHeader className="flex flex-row items-center justify-between pb-2 relative z-10">
+                <CardTitle className="text-sm font-medium text-muted-foreground/80 tracking-wide uppercase">{title}</CardTitle>
+                <div className="p-2 rounded-lg bg-background/50 backdrop-blur-sm shadow-sm transition-transform group-hover:scale-110 duration-300">
+                    <Icon className="w-4 h-4 text-foreground/80" />
+                </div>
+            </CardHeader>
+            <CardContent className="relative z-10">
+                <div className="text-3xl font-bold tracking-tight mb-1 tabular-nums">{value.toLocaleString()}</div>
+                <p className="text-xs text-muted-foreground font-medium">{label}</p>
+            </CardContent>
+        </Card>
+    );
+
     return (
-        <Tabs defaultValue="content" className="space-y-6">
-            <TabsList>
-                <TabsTrigger value="content" className="gap-2"><Package className="h-4 w-4" /> 内容管理</TabsTrigger>
-                <TabsTrigger value="categories" className="gap-2"><Layers className="h-4 w-4" /> 分类管理</TabsTrigger>
-                <TabsTrigger value="get" className="gap-2"><ShieldCheck className="h-4 w-4" /> 获取内容</TabsTrigger>
-                <TabsTrigger value="api" className="gap-2"><Code className="h-4 w-4" /> API 文档</TabsTrigger>
-            </TabsList>
+        <div className="space-y-8 animate-in fade-in-50 duration-500">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-card/50 backdrop-blur-sm p-6 rounded-2xl border border-border/50 shadow-sm">
+                <div className="space-y-1">
+                    <h1 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-cyan-500">
+                        发货内容管理
+                    </h1>
+                    <p className="text-muted-foreground text-sm flex items-center gap-2">
+                        <Box className="w-4 h-4 text-blue-500" />
+                        自动化发货资源池配置
+                    </p>
+                </div>
+                <Button variant="outline" className="border-border/50 hover:bg-background/80" onClick={() => fetchData()}>
+                    <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                    刷新数据
+                </Button>
+            </div>
 
-            {/* TAB 1: 内容管理 */}
-            <TabsContent value="content" className="space-y-6">
-                {/* 顶部统计卡片 */}
-                {stats && (
-                    <div className="grid gap-4 md:grid-cols-4">
-                        <Card>
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">总库存量</CardTitle>
-                                <Package className="h-4 w-4 text-muted-foreground" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold">{stats.total_contents}</div>
-                                <p className="text-xs text-muted-foreground">
-                                    可用: {stats.unused_contents} / 已用: {stats.used_contents}
-                                </p>
-                            </CardContent>
-                        </Card>
-                        {stats.category_stats && Array.isArray(stats.category_stats) && stats.category_stats.slice(0, 3).map(cat => (
-                            <Card key={cat.category_id}>
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                    <CardTitle className="text-sm font-medium truncate" title={cat.category_name}>{cat.category_name}</CardTitle>
-                                    <Layers className="h-4 w-4 text-muted-foreground" />
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="text-2xl font-bold">{cat.unused}</div>
-                                    <p className="text-xs text-muted-foreground">剩余可用数量</p>
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </div>
-                )}
+            <Tabs defaultValue="content" className="space-y-6">
+                <div className="flex items-center justify-between p-1 bg-muted/50 rounded-xl backdrop-blur-sm border border-border/50 w-full md:w-fit">
+                    <TabsList className="bg-transparent border-0 p-0 h-auto gap-1">
+                        <TabsTrigger value="content" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary px-4 py-2 rounded-lg transition-all"><Package className="h-4 w-4" /> 内容管理</TabsTrigger>
+                        <TabsTrigger value="categories" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary px-4 py-2 rounded-lg transition-all"><Layers className="h-4 w-4" /> 分类管理</TabsTrigger>
+                        <TabsTrigger value="get" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary px-4 py-2 rounded-lg transition-all"><ShieldCheck className="h-4 w-4" /> 获取内容</TabsTrigger>
+                        <TabsTrigger value="api" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary px-4 py-2 rounded-lg transition-all"><Code className="h-4 w-4" /> API 文档</TabsTrigger>
+                    </TabsList>
+                </div>
 
-                {/* 操作栏 */}
-                <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-                    <div className="flex gap-2 items-center w-full md:w-auto">
-                        <select
-                            value={filterCategory}
-                            onChange={e => setFilterCategory(e.target.value)}
-                            className="flex h-10 items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 w-[180px]"
-                        >
-                            <option value="all">所有分类</option>
-                            {categories.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
-                        </select>
+                {/* TAB 1: 内容管理 */}
+                <TabsContent value="content" className="space-y-6 animate-in fade-in-50 slide-in-from-bottom-2 duration-500">
+                    {/* 顶部统计卡片 */}
+                    {stats && (
+                        <div className="grid gap-4 md:grid-cols-4">
+                            <StatCard 
+                                title="总库存量" 
+                                value={stats.total_contents} 
+                                label={`可用: ${stats.unused_contents} / 已用: ${stats.used_contents}`}
+                                icon={Package}
+                                gradient="bg-gradient-to-br from-blue-500 to-indigo-500"
+                            />
+                            {stats.category_stats && Array.isArray(stats.category_stats) && stats.category_stats.slice(0, 3).map((cat, i) => (
+                                <StatCard
+                                    key={cat.category_id}
+                                    title={cat.category_name}
+                                    value={cat.unused}
+                                    label="剩余可用数量"
+                                    icon={Layers}
+                                    gradient={`bg-gradient-to-br ${i === 0 ? 'from-emerald-500 to-teal-500' : i === 1 ? 'from-amber-500 to-orange-500' : 'from-purple-500 to-pink-500'}`}
+                                />
+                            ))}
+                        </div>
+                    )}
 
-                        <select
-                            value={filterUsed}
-                            onChange={e => setFilterUsed(e.target.value)}
-                            className="flex h-10 items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 w-[180px]"
-                        >
-                            <option value="all">所有状态</option>
-                            <option value="unused">未使用</option>
-                            <option value="used">已使用</option>
-                        </select>
+                    {/* 操作栏 */}
+                    <Card className="border-0 shadow-lg bg-card/50 backdrop-blur-sm">
+                        <CardContent className="p-6">
+                            <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+                                <div className="flex gap-2 items-center w-full md:w-auto">
+                                    <select
+                                        value={filterCategory}
+                                        onChange={e => setFilterCategory(e.target.value)}
+                                        className="flex h-10 items-center justify-between rounded-md border border-input bg-background/50 px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 w-[180px]"
+                                    >
+                                        <option value="all">所有分类</option>
+                                        {categories.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
+                                    </select>
 
-                        <Button variant="outline" size="icon" onClick={() => fetchData()} disabled={loading}>
-                            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                        </Button>
-                    </div>
-
-                    <div className="flex gap-2 w-full md:w-auto">
-                        <Dialog open={isBatchImportOpen} onOpenChange={setIsBatchImportOpen}>
-                            <DialogTrigger asChild>
-                                <Button variant="outline"><Upload className="mr-2 h-4 w-4" />批量导入</Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                                <DialogHeader><DialogTitle>批量导入内容</DialogTitle></DialogHeader>
-                                <div className="space-y-4">
-                                    <div className="space-y-2">
-                                        <Label>选择分类</Label>
-                                        <select
-                                            value={selectedCatId}
-                                            onChange={e => setSelectedCatId(e.target.value)}
-                                            className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                                        >
-                                            <option value="none">无分类</option>
-                                            {categories.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
-                                        </select>
-                                    </div>
-                                    <textarea
-                                        placeholder="在此粘贴内容，每一行一条数据"
-                                        className="flex min-h-[150px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                        value={batchContent}
-                                        onChange={e => setBatchContent(e.target.value)}
-                                    />
-                                    <Button className="w-full" onClick={handleBatchImport}>开始导入</Button>
+                                    <select
+                                        value={filterUsed}
+                                        onChange={e => setFilterUsed(e.target.value)}
+                                        className="flex h-10 items-center justify-between rounded-md border border-input bg-background/50 px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 w-[180px]"
+                                    >
+                                        <option value="all">所有状态</option>
+                                        <option value="unused">未使用</option>
+                                        <option value="used">已使用</option>
+                                    </select>
                                 </div>
-                            </DialogContent>
-                        </Dialog>
 
-                        <Dialog open={isAddContentOpen} onOpenChange={setIsAddContentOpen}>
-                            <DialogTrigger asChild>
-                                <Button><Plus className="mr-2 h-4 w-4" />添加内容</Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                                <DialogHeader><DialogTitle>添加单个内容</DialogTitle></DialogHeader>
-                                <div className="space-y-4">
+                                <div className="flex gap-2 w-full md:w-auto">
+                                    <Dialog open={isBatchImportOpen} onOpenChange={setIsBatchImportOpen}>
+                                        <DialogTrigger asChild>
+                                            <Button variant="outline"><Upload className="mr-2 h-4 w-4" />批量导入</Button>
+                                        </DialogTrigger>
+                                        <DialogContent>
+                                            <DialogHeader>
+                                                <DialogTitle className="flex items-center gap-2">
+                                                    <div className="p-2 bg-primary/10 rounded-lg">
+                                                        <Upload className="w-5 h-5 text-primary" />
+                                                    </div>
+                                                    批量导入内容
+                                                </DialogTitle>
+                                            </DialogHeader>
+                                            <div className="space-y-4 py-4">
+                                                <div className="space-y-2">
+                                                    <Label>选择分类</Label>
+                                                    <select
+                                                        value={selectedCatId}
+                                                        onChange={e => setSelectedCatId(e.target.value)}
+                                                        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                                    >
+                                                        <option value="none">无分类</option>
+                                                        {categories.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
+                                                    </select>
+                                                </div>
+                                                <textarea
+                                                    placeholder="在此粘贴内容，每一行一条数据"
+                                                    className="flex min-h-[150px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                                    value={batchContent}
+                                                    onChange={e => setBatchContent(e.target.value)}
+                                                />
+                                                <Button className="w-full" onClick={handleBatchImport}>开始导入</Button>
+                                            </div>
+                                        </DialogContent>
+                                    </Dialog>
+
+                                    <Dialog open={isAddContentOpen} onOpenChange={setIsAddContentOpen}>
+                                        <DialogTrigger asChild>
+                                            <Button><Plus className="mr-2 h-4 w-4" />添加内容</Button>
+                                        </DialogTrigger>
+                                        <DialogContent>
+                                            <DialogHeader>
+                                                <DialogTitle className="flex items-center gap-2">
+                                                    <div className="p-2 bg-primary/10 rounded-lg">
+                                                        <Plus className="w-5 h-5 text-primary" />
+                                                    </div>
+                                                    添加单个内容
+                                                </DialogTitle>
+                                            </DialogHeader>
+                                            <div className="space-y-4 py-4">
+                                                <select
+                                                    value={selectedCatId}
+                                                    onChange={e => setSelectedCatId(e.target.value)}
+                                                    className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                                >
+                                                    <option value="none">无分类</option>
+                                                    {categories.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
+                                                </select>
+                                                <Input placeholder="内容文本" value={newContent} onChange={e => setNewContent(e.target.value)} />
+                                                <Button className="w-full" onClick={handleAddContent}>确认添加</Button>
+                                            </div>
+                                        </DialogContent>
+                                    </Dialog>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* 内容表格 */}
+                    <Card className="border-0 shadow-lg bg-card/50 backdrop-blur-sm overflow-hidden">
+                        <CardContent className="p-0">
+                            <div className="max-h-[600px] overflow-y-auto scrollbar-custom">
+                                <Table>
+                                    <TableHeader className="bg-muted/50 sticky top-0 z-10 backdrop-blur-md">
+                                        <TableRow>
+                                            <TableHead>内容</TableHead>
+                                            <TableHead>分类</TableHead>
+                                            <TableHead>状态</TableHead>
+                                            <TableHead>创建时间</TableHead>
+                                            <TableHead className="text-right">操作</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {contents.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={5} className="text-center h-32 text-muted-foreground">
+                                                    <div className="flex flex-col items-center gap-2">
+                                                        <Search className="w-8 h-8 opacity-20" />
+                                                        <span>暂无数据</span>
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : (
+                                            contents.map((item) => (
+                                                <TableRow key={item.id} className="group hover:bg-muted/50 transition-colors">
+                                                    <TableCell className="font-mono">{item.content}</TableCell>
+                                                    <TableCell>
+                                                        {item.category_name ? (
+                                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-secondary/50 text-secondary-foreground text-xs font-medium border border-border/50">
+                                                                <Layers className="w-3 h-3" />
+                                                                {item.category_name}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-muted-foreground text-xs">-</span>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                                                            item.is_used 
+                                                                ? 'bg-amber-500/10 text-amber-600 border-amber-200/20' 
+                                                                : 'bg-emerald-500/10 text-emerald-600 border-emerald-200/20'
+                                                        }`}>
+                                                            <span className={`w-1.5 h-1.5 rounded-full ${item.is_used ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                                                            {item.is_used ? "已使用" : "未使用"}
+                                                        </span>
+                                                        {item.is_used && item.used_at && (
+                                                            <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                                                                <Calendar className="w-3 h-3" />
+                                                                {new Date(item.used_at).toLocaleDateString()}
+                                                            </div>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell className="text-muted-foreground text-xs">
+                                                        {new Date(item.created_at).toLocaleDateString()}
+                                                    </TableCell>
+                                                    <TableCell className="text-right space-x-2">
+                                                        {item.is_used && (
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted" onClick={() => handleResetContent(item.id)} title="重置状态">
+                                                                <RefreshCw className="h-4 w-4" />
+                                                            </Button>
+                                                        )}
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteContent(item.id)} title="删除">
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                {/* TAB 2: 分类管理 */}
+                <TabsContent value="categories" className="space-y-6 animate-in fade-in-50 slide-in-from-bottom-2 duration-500">
+                    <Card className="border-0 shadow-lg bg-card/50 backdrop-blur-sm">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Layers className="w-5 h-5 text-primary" />
+                                分类管理
+                            </CardTitle>
+                            <CardDescription>管理发货内容的分类，便于组织和查找。</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            <div className="flex flex-col md:flex-row gap-4 items-end bg-muted/20 p-4 rounded-xl border border-border/50">
+                                <div className="grid gap-2 flex-1 w-full">
+                                    <Label>新分类名称</Label>
+                                    <Input placeholder="输入分类名称" value={newCatName} onChange={e => setNewCatName(e.target.value)} className="bg-background/50" />
+                                </div>
+                                <div className="grid gap-2 flex-[2] w-full">
+                                    <Label>描述 (可选)</Label>
+                                    <Input placeholder="输入分类描述" value={newCatDesc} onChange={e => setNewCatDesc(e.target.value)} className="bg-background/50" />
+                                </div>
+                                <Button onClick={handleAddCategory} className="w-full md:w-auto"><Plus className="mr-2 h-4 w-4" />添加分类</Button>
+                            </div>
+
+                            <div className="border rounded-lg overflow-hidden">
+                                <Table>
+                                    <TableHeader className="bg-muted/50">
+                                        <TableRow>
+                                            <TableHead className="w-[80px]">ID</TableHead>
+                                            <TableHead>分类名称</TableHead>
+                                            <TableHead>描述</TableHead>
+                                            <TableHead>包含内容数</TableHead>
+                                            <TableHead className="text-right">操作</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {categories.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
+                                                    暂无分类
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : (
+                                            categories.map(cat => (
+                                                <TableRow key={cat.id}>
+                                                    <TableCell className="font-mono text-muted-foreground">#{cat.id}</TableCell>
+                                                    <TableCell className="font-medium">
+                                                        <div className="flex items-center gap-2">
+                                                            <Layers className="w-4 h-4 text-muted-foreground" />
+                                                            {cat.name}
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-muted-foreground">{cat.description || '-'}</TableCell>
+                                                    <TableCell>
+                                                        <span className="inline-flex items-center rounded-full bg-muted px-2 py-1 text-xs font-medium">
+                                                            {cat.content_count}
+                                                        </span>
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        <Button variant="ghost" size="sm" onClick={() => handleDeleteCategory(cat.id)} className="text-muted-foreground hover:text-destructive hover:bg-destructive/10">
+                                                            <Trash2 className="h-4 w-4 mr-1" /> 删除
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                {/* TAB 3: 获取内容 */}
+                <TabsContent value="get" className="space-y-6 animate-in fade-in-50 slide-in-from-bottom-2 duration-500">
+                    <Card className="border-0 shadow-lg bg-card/50 backdrop-blur-sm">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <ShieldCheck className="w-5 h-5 text-primary" />
+                                测试获取内容
+                            </CardTitle>
+                            <CardDescription>模拟客户端 API 调用，测试获取发货内容。</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex flex-col md:flex-row gap-6 items-center p-6 border rounded-xl bg-muted/20">
+                                <div className="p-4 bg-primary/10 rounded-full">
+                                    <AlertCircle className="h-8 w-8 text-primary" />
+                                </div>
+                                <div className="space-y-1 flex-1 text-center md:text-left">
+                                    <p className="text-base font-semibold">选择要模拟获取的分类</p>
+                                    <p className="text-sm text-muted-foreground">点击按钮将调用 GET /api/shipment/get 接口，模拟用户提取流程</p>
+                                </div>
+                                <div className="flex gap-2 w-full md:w-auto">
                                     <select
                                         value={selectedCatId}
                                         onChange={e => setSelectedCatId(e.target.value)}
-                                        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                        className="flex h-10 w-full md:w-[180px] items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                                     >
-                                        <option value="none">无分类</option>
+                                        <option value="none">任意分类</option>
                                         {categories.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
                                     </select>
-                                    <Input placeholder="内容文本" value={newContent} onChange={e => setNewContent(e.target.value)} />
-                                    <Button className="w-full" onClick={handleAddContent}>确认添加</Button>
+                                    <Button variant="default" onClick={handleTestGet} className="shadow-lg shadow-primary/20">随机获取并发放一个</Button>
                                 </div>
-                            </DialogContent>
-                        </Dialog>
-                    </div>
-                </div>
-
-                {/* 内容表格 */}
-                <Card>
-                    <CardContent className="p-0">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>内容</TableHead>
-                                    <TableHead>分类</TableHead>
-                                    <TableHead>状态</TableHead>
-                                    <TableHead>创建时间</TableHead>
-                                    <TableHead className="text-right">操作</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {contents.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
-                                            暂无数据
-                                        </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    contents.map((item) => (
-                                        <TableRow key={item.id}>
-                                            <TableCell className="font-mono">{item.content}</TableCell>
-                                            <TableCell>
-                                                {item.category_name ? (
-                                                    <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80">
-                                                        {item.category_name}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-muted-foreground">-</span>
-                                                )}
-                                            </TableCell>
-                                            <TableCell>
-                                                <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent ${item.is_used ? "bg-secondary text-secondary-foreground" : "bg-primary text-primary-foreground"}`}>
-                                                    {item.is_used ? "已使用" : "未使用"}
-                                                </span>
-                                                {item.is_used && item.used_at && (
-                                                    <div className="text-xs text-muted-foreground mt-1">{new Date(item.used_at).toLocaleDateString()}</div>
-                                                )}
-                                            </TableCell>
-                                            <TableCell className="text-muted-foreground text-sm">
-                                                {new Date(item.created_at).toLocaleDateString()}
-                                            </TableCell>
-                                            <TableCell className="text-right space-x-2">
-                                                {item.is_used && (
-                                                    <Button variant="ghost" size="sm" onClick={() => handleResetContent(item.id)} title="重置状态">
-                                                        <RefreshCw className="h-4 w-4" />
-                                                    </Button>
-                                                )}
-                                                <Button variant="ghost" size="sm" onClick={() => handleDeleteContent(item.id)} title="删除">
-                                                    <Trash2 className="h-4 w-4 text-red-500" />
-                                                </Button>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
-                                )}
-                            </TableBody>
-                        </Table>
-                    </CardContent>
-                </Card>
-            </TabsContent>
-
-            {/* TAB 2: 分类管理 */}
-            <TabsContent value="categories" className="space-y-6">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>分类管理</CardTitle>
-                        <CardDescription>管理发货内容的分类，便于组织和查找。</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                        <div className="flex gap-4 items-end">
-                            <div className="grid gap-2 flex-1">
-                                <Label>新分类名称</Label>
-                                <Input placeholder="输入分类名称" value={newCatName} onChange={e => setNewCatName(e.target.value)} />
                             </div>
-                            <div className="grid gap-2 flex-[2]">
-                                <Label>描述 (可选)</Label>
-                                <Input placeholder="输入分类描述" value={newCatDesc} onChange={e => setNewCatDesc(e.target.value)} />
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                {/* TAB 4: API 文档 */}
+                <TabsContent value="api" className="space-y-6 animate-in fade-in-50 slide-in-from-bottom-2 duration-500">
+                    <Card className="border-0 shadow-lg bg-card/50 backdrop-blur-sm">
+                        <CardHeader className="border-b border-border/40 pb-4">
+                            <div className="flex items-center gap-2">
+                                <Code className="w-5 h-5 text-primary" />
+                                <CardTitle>发货标签 API 文档</CardTitle>
                             </div>
-                            <Button onClick={handleAddCategory}><Plus className="mr-2 h-4 w-4" />添加分类</Button>
-                        </div>
-
-                        <div className="border rounded-lg">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="w-[80px]">ID</TableHead>
-                                        <TableHead>分类名称</TableHead>
-                                        <TableHead>描述</TableHead>
-                                        <TableHead>包含内容数</TableHead>
-                                        <TableHead className="text-right">操作</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {categories.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
-                                                暂无分类
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : (
-                                        categories.map(cat => (
-                                            <TableRow key={cat.id}>
-                                                <TableCell className="font-mono">{cat.id}</TableCell>
-                                                <TableCell className="font-medium">{cat.name}</TableCell>
-                                                <TableCell className="text-muted-foreground">{cat.description || '-'}</TableCell>
-                                                <TableCell>{cat.content_count}</TableCell>
-                                                <TableCell className="text-right">
-                                                    <Button variant="ghost" size="sm" onClick={() => handleDeleteCategory(cat.id)} className="text-red-500 hover:text-red-600 hover:bg-red-50">
-                                                        <Trash2 className="h-4 w-4" /> 删除
-                                                    </Button>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    </CardContent>
-                </Card>
-            </TabsContent>
-
-            {/* TAB 3: 获取内容 */}
-            <TabsContent value="get" className="space-y-6">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>测试获取内容</CardTitle>
-                        <CardDescription>模拟客户端 API 调用，测试获取发货内容。</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex gap-4 items-center p-4 border rounded-lg bg-muted/20">
-                            <AlertCircle className="h-5 w-5 text-muted-foreground" />
-                            <div className="space-y-1 flex-1">
-                                <p className="text-sm font-medium">选择要模拟获取的分类</p>
-                                <p className="text-xs text-muted-foreground">点击按钮将调用 GET /api/shipment/get 接口</p>
+                        </CardHeader>
+                        <CardContent className="space-y-6 pt-6">
+                            {/* 动态参数设置 */}
+                            <div className="flex flex-col md:flex-row gap-4 items-center p-4 border rounded-xl bg-muted/20">
+                                <Code className="h-5 w-5 text-muted-foreground hidden md:block" />
+                                <div className="space-y-1 flex-1 w-full">
+                                    <p className="text-sm font-medium">API 示例参数配置</p>
+                                    <p className="text-xs text-muted-foreground">选择分类以在下方示例中自动填充 Category ID</p>
+                                </div>
+                                <select
+                                    value={exampleCatId}
+                                    onChange={e => setExampleCatId(e.target.value)}
+                                    className="flex h-10 w-full md:w-[200px] items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                >
+                                    <option value="">任意分类 (示例)</option>
+                                    {categories.map(c => <option key={c.id} value={String(c.id)}>{c.name} (ID: {c.id})</option>)}
+                                </select>
                             </div>
-                            <select
-                                value={selectedCatId}
-                                onChange={e => setSelectedCatId(e.target.value)}
-                                className="flex h-10 w-[180px] items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                            >
-                                <option value="none">任意分类</option>
-                                {categories.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
-                            </select>
-                            <Button variant="default" onClick={handleTestGet}>随机获取并发放一个</Button>
-                        </div>
-                    </CardContent>
-                </Card>
-            </TabsContent>
 
-            {/* TAB 4: API 文档 */}
-            <TabsContent value="api" className="space-y-6">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-lg">发货标签 API 文档</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                        {/* 动态参数设置 */}
-                        <div className="flex gap-4 items-center p-4 border rounded-lg bg-muted/20">
-                            <Code className="h-5 w-5 text-muted-foreground" />
-                            <div className="space-y-1 flex-1">
-                                <p className="text-sm font-medium">API 示例参数配置</p>
-                                <p className="text-xs text-muted-foreground">选择分类以在下方示例中自动填充 Category ID</p>
+                            {/* 基础信息 */}
+                            <div className="p-4 bg-primary/5 border border-primary/10 rounded-xl">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                                    <div className="space-y-1">
+                                        <p className="text-sm text-muted-foreground">基础 URL</p>
+                                        <code className="bg-background/50 px-2 py-1 rounded text-sm block w-fit border border-border/50">{window.location.origin}/api</code>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-sm text-muted-foreground">您的授权码 (key)</p>
+                                            <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => copyToClipboard(authKey)}>
+                                                <Copy className="h-3 w-3" />
+                                            </Button>
+                                        </div>
+                                        <code className="bg-primary/10 text-primary px-2 py-1 rounded font-bold font-mono block w-fit">{authKey}</code>
+                                    </div>
+                                </div>
                             </div>
-                            <select
-                                value={exampleCatId}
-                                onChange={e => setExampleCatId(e.target.value)}
-                                className="flex h-10 w-[180px] items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                            >
-                                <option value="">任意分类 (示例)</option>
-                                {categories.map(c => <option key={c.id} value={String(c.id)}>{c.name} (ID: {c.id})</option>)}
-                            </select>
-                        </div>
 
-                        {/* 基础信息 */}
-                        <div className="p-3 bg-muted/50 rounded-lg">
-                            <p className="text-sm"><strong>基础URL:</strong> <code className="bg-muted px-2 py-1 rounded">{window.location.origin}/api</code></p>
-                            <p className="text-sm mt-1"><strong>您的授权码 (key):</strong> <code className="bg-primary/10 text-primary px-2 py-1 rounded font-bold">{authKey}</code></p>
-                        </div>
-
-                        {/* 1. 获取/使用内容 */}
-                        <div className="space-y-2">
-                            <h4 className="font-semibold text-primary">1. 获取内容 (核心接口)</h4>
-                            <div className="bg-muted/30 p-3 rounded-lg space-y-2 text-sm break-all">
-                                <p>获取任意分类内容:</p>
-                                <p><code className="bg-muted px-2 py-1 rounded block mt-1">{window.location.origin}/api/shipment/get?key={authKey}</code></p>
-
-                                <p className="mt-3">获取指定分类内容:</p>
-                                <p><code className="bg-muted px-2 py-1 rounded block mt-1">{window.location.origin}/api/shipment/get?key={authKey}&category_id={exampleCatId || '1'}</code></p>
-
-                                <p className="text-muted-foreground mt-2">说明: 随机获取一个未使用的内容并标记为已使用，返回纯文本</p>
+                            {/* 1. 获取/使用内容 */}
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-200/20">GET</span>
+                                    <h4 className="font-semibold text-sm">获取内容 (核心接口)</h4>
+                                </div>
+                                <div className="bg-slate-950 rounded-lg p-4 space-y-4 shadow-inner border border-border/50 relative group">
+                                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-white" onClick={() => copyToClipboard(`${window.location.origin}/api/shipment/get?key=${authKey}&category_id=${exampleCatId || '1'}`)}>
+                                            <Copy className="w-3 h-3" />
+                                        </Button>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-xs text-slate-400">// 获取任意分类内容</p>
+                                        <p className="font-mono text-xs text-slate-300 break-all">
+                                            <span className="text-purple-400">GET</span> {window.location.origin}/api/shipment/get?<span className="text-orange-400">key</span>={authKey}
+                                        </p>
+                                    </div>
+                                    <div className="space-y-1 pt-2 border-t border-slate-800">
+                                        <p className="text-xs text-slate-400">// 获取指定分类内容</p>
+                                        <p className="font-mono text-xs text-slate-300 break-all">
+                                            <span className="text-purple-400">GET</span> {window.location.origin}/api/shipment/get?<span className="text-orange-400">key</span>={authKey}&<span className="text-orange-400">category_id</span>={exampleCatId || '1'}
+                                        </p>
+                                    </div>
+                                </div>
+                                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                    <ShieldCheck className="w-3 h-3" />
+                                    说明: 随机获取一个未使用的内容并标记为已使用，返回纯文本
+                                </p>
                             </div>
-                        </div>
 
-                        {/* 2. 分类管理 */}
-                        <div className="space-y-2">
-                            <h4 className="font-semibold text-primary">2. 分类管理</h4>
-                            <div className="bg-muted/30 p-3 rounded-lg space-y-2 text-sm break-all">
-                                <p>获取所有分类:</p>
-                                <p><code className="bg-muted px-2 py-1 rounded block mt-1">{window.location.origin}/api/shipment/categories?key={authKey}</code></p>
-
-                                <p className="mt-2">添加分类:</p>
-                                <p><code className="bg-muted px-2 py-1 rounded block mt-1">{window.location.origin}/api/shipment/categories/add?key={authKey}&name=分类名&description=描述</code></p>
-
-                                <p className="mt-2">删除分类:</p>
-                                <p><code className="bg-muted px-2 py-1 rounded block mt-1">{window.location.origin}/api/shipment/categories/delete?key={authKey}&id={exampleCatId || '1'}</code></p>
+                            {/* 2. 分类管理 */}
+                            <div className="space-y-3 pt-4 border-t border-border/40">
+                                <div className="flex items-center gap-2">
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-600 border border-blue-200/20">GET</span>
+                                    <h4 className="font-semibold text-sm">分类管理</h4>
+                                </div>
+                                <div className="bg-slate-950 rounded-lg p-4 space-y-2 font-mono text-xs text-slate-300 shadow-inner border border-border/50">
+                                    <p><span className="text-purple-400">GET</span> /api/shipment/categories?<span className="text-orange-400">key</span>={authKey}</p>
+                                    <p><span className="text-purple-400">GET</span> /api/shipment/categories/add?<span className="text-orange-400">key</span>={authKey}&<span className="text-orange-400">name</span>=分类名&<span className="text-orange-400">description</span>=描述</p>
+                                    <p><span className="text-purple-400">GET</span> /api/shipment/categories/delete?<span className="text-orange-400">key</span>={authKey}&<span className="text-orange-400">id</span>={exampleCatId || '1'}</p>
+                                </div>
                             </div>
-                        </div>
 
-                        {/* 3. 内容管理 */}
-                        <div className="space-y-2">
-                            <h4 className="font-semibold text-primary">3. 内容管理</h4>
-                            <div className="bg-muted/30 p-3 rounded-lg space-y-2 text-sm break-all">
-                                <p>获取内容列表:</p>
-                                <p><code className="bg-muted px-2 py-1 rounded block mt-1">{window.location.origin}/api/shipment/contents?key={authKey}&category_id={exampleCatId || '1'}</code></p>
-
-                                <p className="mt-2">添加单个内容:</p>
-                                <p><code className="bg-muted px-2 py-1 rounded block mt-1">{window.location.origin}/api/shipment/contents/add?key={authKey}&content=内容&category_id={exampleCatId || '1'}</code></p>
-
-                                <p className="mt-2">删除内容:</p>
-                                <p><code className="bg-muted px-2 py-1 rounded block mt-1">{window.location.origin}/api/shipment/contents/delete?key={authKey}&id=1</code></p>
+                            {/* 3. 内容管理 */}
+                            <div className="space-y-3 pt-4 border-t border-border/40">
+                                <div className="flex items-center gap-2">
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/10 text-purple-600 border border-purple-200/20">GET</span>
+                                    <h4 className="font-semibold text-sm">内容管理</h4>
+                                </div>
+                                <div className="bg-slate-950 rounded-lg p-4 space-y-2 font-mono text-xs text-slate-300 shadow-inner border border-border/50">
+                                    <p><span className="text-purple-400">GET</span> /api/shipment/contents?<span className="text-orange-400">key</span>={authKey}&<span className="text-orange-400">category_id</span>={exampleCatId || '1'}</p>
+                                    <p><span className="text-purple-400">GET</span> /api/shipment/contents/add?<span className="text-orange-400">key</span>={authKey}&<span className="text-orange-400">content</span>=内容&<span className="text-orange-400">category_id</span>={exampleCatId || '1'}</p>
+                                    <p><span className="text-purple-400">GET</span> /api/shipment/contents/delete?<span className="text-orange-400">key</span>={authKey}&<span className="text-orange-400">id</span>=1</p>
+                                </div>
                             </div>
-                        </div>
 
-                        {/* 4. 统计信息 */}
-                        <div className="space-y-2">
-                            <h4 className="font-semibold text-primary">4. 统计信息</h4>
-                            <div className="bg-muted/30 p-3 rounded-lg space-y-2 text-sm break-all">
-                                <p>获取统计概览:</p>
-                                <p><code className="bg-muted px-2 py-1 rounded block mt-1">{window.location.origin}/api/shipment/stats?key={authKey}</code></p>
+                            {/* 4. 统计信息 */}
+                            <div className="space-y-3 pt-4 border-t border-border/40">
+                                <div className="flex items-center gap-2">
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-600 border border-amber-200/20">GET</span>
+                                    <h4 className="font-semibold text-sm">统计信息</h4>
+                                </div>
+                                <div className="bg-slate-950 rounded-lg p-4 font-mono text-xs text-slate-300 shadow-inner border border-border/50">
+                                    <p><span className="text-purple-400">GET</span> /api/shipment/stats?<span className="text-orange-400">key</span>={authKey}</p>
+                                </div>
                             </div>
-                        </div>
 
-                        {/* 批量添加示例 */}
-                        <div className="space-y-2">
-                            <h4 className="font-semibold text-primary">批量添加请求示例 (POST)</h4>
-                            <pre className="bg-muted/50 p-3 rounded-lg text-sm overflow-x-auto font-mono">
-                                {`POST /api/shipment/contents/batch-add
+                            {/* 批量添加示例 */}
+                            <div className="space-y-3 pt-4 border-t border-border/40">
+                                <div className="flex items-center gap-2">
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-green-500/10 text-green-600 border border-green-200/20">POST</span>
+                                    <h4 className="font-semibold text-sm">批量添加内容</h4>
+                                </div>
+                                <div className="bg-slate-950 rounded-lg p-4 font-mono text-xs text-slate-300 shadow-inner border border-border/50 overflow-x-auto">
+                                    <pre>{`POST /api/shipment/contents/batch-add
 Content-Type: application/json
 
 {
@@ -613,12 +747,31 @@ Content-Type: application/json
     "内容数据2",
     "内容数据3"
   ]
-}`}
-                            </pre>
-                        </div>
-                    </CardContent>
-                </Card>
-            </TabsContent>
-        </Tabs>
+}`}</pre>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+            </Tabs>
+
+            <ConfirmDialog 
+                isOpen={deleteCatId !== null}
+                onClose={() => setDeleteCatId(null)}
+                title="确认删除分类"
+                description="确定删除该分类吗？分类下的内容将变为未分类，此操作无法撤销。"
+                onConfirm={confirmDeleteCategory}
+                variant="destructive"
+            />
+
+            <ConfirmDialog 
+                isOpen={deleteContentId !== null}
+                onClose={() => setDeleteContentId(null)}
+                title="确认删除内容"
+                description="确认删除此内容？此操作无法撤销。"
+                onConfirm={confirmDeleteContent}
+                variant="destructive"
+            />
+        </div>
     );
 }

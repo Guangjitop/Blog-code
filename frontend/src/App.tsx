@@ -7,6 +7,7 @@ import AdminLogin from './pages/AdminLogin';
 import UserLogin from './pages/UserLogin';
 import AdminDashboard from './pages/AdminDashboard';
 import UserDashboard from './pages/UserDashboard';
+import ShipmentPage from './pages/ShipmentPage';
 
 function App() {
   return (
@@ -25,6 +26,11 @@ function App() {
             <Route path="/user/dashboard" element={
               <MainLayout userType="user">
                 <UserDashboard />
+              </MainLayout>
+            } />
+            <Route path="/user/shipment" element={
+              <MainLayout userType="user">
+                <ShipmentPage />
               </MainLayout>
             } />
             {/* Redirect unknown routes to home */}

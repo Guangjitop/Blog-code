@@ -1,13 +1,13 @@
 import { useState } from "react"
-import { NavLink, useLocation, useNavigate } from "react-router-dom"
+import { NavLink, useNavigate } from "react-router-dom"
 import {
   Users,
   ChevronLeft,
   ChevronRight,
   LogOut,
-  Menu,
   Key,
-  Package
+  Package,
+  LayoutDashboard
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
@@ -27,14 +27,13 @@ interface MenuItem {
 
 export function Sidebar({ userType }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
-  const location = useLocation()
   const navigate = useNavigate()
 
   const menuItems: MenuItem[] = userType === 'admin'
     ? [{ id: 'dashboard', label: '授权管理', icon: Key, path: '/admin/dashboard' }]
     : [
       { id: 'dashboard', label: '账号管理', icon: Users, path: '/user/dashboard' },
-      { id: 'shipment', label: '发货标签', icon: Package, path: '/user/dashboard?tab=shipment' }
+      { id: 'shipment', label: '发货标签', icon: Package, path: '/user/shipment' }
     ]
 
   const handleLogout = async () => {
@@ -53,17 +52,30 @@ export function Sidebar({ userType }: SidebarProps) {
 
   return (
     <div
-      style={{ width: isCollapsed ? 64 : 256 }}
-      className="h-screen bg-card border-r border-border flex flex-col shadow-sm"
+      className={cn(
+        "h-screen flex flex-col transition-all duration-300 ease-in-out border-r z-20 relative",
+        isCollapsed ? "w-[70px]" : "w-64",
+        "bg-card/30 backdrop-blur-xl border-white/10 dark:border-white/5 supports-[backdrop-filter]:bg-background/20"
+      )}
     >
-      {/* 顶部区域 */}
-      <div className="h-16 flex items-center px-3 border-b border-border">
+      {/* Decorative gradient blur for sidebar */}
+      <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
+
+      {/* Header */}
+      <div className="h-20 flex items-center px-4 border-b border-border/40 relative z-10">
         {!isCollapsed && (
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-gradient-primary flex items-center justify-center shadow-sm flex-shrink-0">
-              <Menu className="h-5 w-5 text-primary-foreground" />
+          <div className="flex items-center gap-3 flex-1 min-w-0 animate-in fade-in slide-in-from-left-4 duration-300">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center shadow-lg shadow-primary/20 flex-shrink-0">
+              <LayoutDashboard className="h-5 w-5 text-white" />
             </div>
-            <span className="font-bold text-lg truncate">管理系统</span>
+            <div className="flex flex-col">
+              <span className="font-bold text-base tracking-tight leading-none bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
+                管理系统
+              </span>
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mt-1">
+                Workspace
+              </span>
+            </div>
           </div>
         )}
 
@@ -71,85 +83,91 @@ export function Sidebar({ userType }: SidebarProps) {
           variant="ghost"
           size="icon"
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="h-8 w-8 rounded-lg hover:bg-accent flex-shrink-0"
+          className={cn(
+            "h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-all",
+            isCollapsed && "mx-auto"
+          )}
         >
           {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </Button>
       </div>
 
-      {/* 菜单项 */}
-      <nav className="flex-1 p-3 space-y-1">
+      {/* Navigation */}
+      <nav className="flex-1 p-4 space-y-2 overflow-y-auto relative z-10 scrollbar-none">
         {menuItems.map((item) => {
           const Icon = item.icon
-          // 解析菜单项路径和当前URL
-          const [itemPath, itemSearch] = item.path.split('?')
-          const currentSearch = location.search
-
-          // 判断激活状态：
-          // 1. 如果菜单项有 query 参数（如 ?tab=shipment），需要 pathname 和 search 都匹配
-          // 2. 如果菜单项没有 query 参数，需要 pathname 匹配且当前 URL 没有 tab 参数
-          let isActive = false
-          if (itemSearch) {
-            // 菜单项有 query 参数，需要完全匹配
-            isActive = location.pathname === itemPath && currentSearch === `?${itemSearch}`
-          } else {
-            // 菜单项没有 query 参数，只有当当前 URL 也没有 tab 参数时才激活
-            const hasTabParam = currentSearch.includes('tab=')
-            isActive = location.pathname === itemPath && !hasTabParam
-          }
 
           return (
             <NavLink
               key={item.id}
               to={item.path}
-              className={() => cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg relative group",
+              className={({ isActive }) => cn(
+                "flex items-center gap-3 px-3 py-3 rounded-xl relative group transition-all duration-300",
                 isActive
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "hover:bg-accent text-muted-foreground hover:text-foreground",
+                  ? "text-white shadow-lg shadow-primary/25"
+                  : "text-muted-foreground hover:text-foreground hover:bg-white/5 dark:hover:bg-white/5",
                 isCollapsed && "justify-center px-2"
               )}
               title={isCollapsed ? item.label : undefined}
             >
-              <Icon className="h-5 w-5 flex-shrink-0" />
-              {!isCollapsed && <span className="font-medium">{item.label}</span>}
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <div className="absolute inset-0 bg-gradient-to-r from-primary to-blue-600 rounded-xl" />
+                  )}
+                  <Icon className={cn("h-5 w-5 flex-shrink-0 relative z-10 transition-transform duration-300 group-hover:scale-110", isActive && "text-white")} />
+                  {!isCollapsed && (
+                    <span className="font-medium relative z-10 text-sm">
+                      {item.label}
+                    </span>
+                  )}
 
-              {isCollapsed && (
-                <div className="absolute left-full ml-3 px-3 py-1.5 bg-popover text-popover-foreground text-sm rounded-lg shadow-lg border border-border opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50">
-                  {item.label}
-                </div>
+                  {/* Tooltip for collapsed state */}
+                  {isCollapsed && (
+                    <div className="absolute left-full ml-4 px-3 py-1.5 bg-popover/90 backdrop-blur-md text-popover-foreground text-xs font-medium rounded-lg shadow-xl border border-border/50 opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none whitespace-nowrap z-50 translate-x-2 group-hover:translate-x-0">
+                      {item.label}
+                    </div>
+                  )}
+                </>
               )}
             </NavLink>
           )
         })}
       </nav>
 
-      {/* 底部操作区 */}
-      <div className="p-3 border-t border-border space-y-3">
-        <div className={cn("flex items-center gap-2", isCollapsed ? "flex-col" : "flex-row")}>
+      {/* Footer */}
+      <div className="p-4 border-t border-border/40 relative z-10 space-y-4">
+        <div className={cn("flex items-center gap-3", isCollapsed ? "flex-col" : "flex-row")}>
           <ThemeToggle />
           <Button
             variant="ghost"
-            size={isCollapsed ? "icon" : "default"}
+            size={isCollapsed ? "icon" : "sm"}
             onClick={handleLogout}
             title="退出登录"
             className={cn(
-              "text-muted-foreground hover:text-foreground",
-              !isCollapsed && "flex-1 justify-start gap-2"
+              "text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors",
+              !isCollapsed && "flex-1 justify-start gap-2 h-9"
             )}
           >
             <LogOut className="h-4 w-4" />
-            {!isCollapsed && <span>退出登录</span>}
+            {!isCollapsed && <span className="text-sm">退出登录</span>}
           </Button>
         </div>
 
         {!isCollapsed && (
-          <div className="px-3 py-2.5 bg-accent/50 rounded-lg">
-            <div className="text-sm font-medium">
-              {userType === 'admin' ? '管理员' : '用户'} 账户
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {userType === 'admin' ? '系统管理员' : '普通用户'}
+          <div className="p-3 rounded-xl bg-gradient-to-br from-primary/5 to-blue-500/5 border border-primary/10">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                {userType === 'admin' ? <Key className="h-4 w-4" /> : <Users className="h-4 w-4" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold truncate text-foreground">
+                  {userType === 'admin' ? '管理员' : '用户'}
+                </div>
+                <div className="text-[10px] text-muted-foreground truncate">
+                  {userType === 'admin' ? 'System Admin' : 'Standard User'}
+                </div>
+              </div>
             </div>
           </div>
         )}

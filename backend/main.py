@@ -12,6 +12,8 @@ from contextlib import contextmanager
 import os
 import secrets
 import string
+import requests
+import math
 
 # 管理员密码
 ADMIN_PASSWORD = "admin121"
@@ -58,6 +60,8 @@ app.add_middleware(
 # 数据库配置
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_NAME = os.path.join(BASE_DIR, "accounts.db")
+TUNEHUB_PARSE_URL = "https://tunehub.sayqz.com/api/v1/parse"
+TUNEHUB_METHODS_BASE_URL = "https://tunehub.sayqz.com/api/v1/methods"
 
 # 数据模型
 class Category(BaseModel):
@@ -180,6 +184,11 @@ class BatchShipmentContentRequest(BaseModel):
     category_id: Optional[int] = None
     contents: List[str]
 
+class MusicApiKeySaveRequest(BaseModel):
+    """保存服务端 TuneHub API Key 请求"""
+    api_key: str
+    password: Optional[str] = None
+
 # 数据库连接管理
 @contextmanager
 def get_db():
@@ -293,6 +302,15 @@ def init_db():
                 updated_at TEXT NOT NULL
             )
         ''')
+
+        # 创建音乐配置表（单行表）
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS music_settings (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                tunehub_api_key TEXT,
+                updated_at TEXT NOT NULL
+            )
+        ''')
         
         # 初始化统计数据（如果不存在）
         cursor.execute("SELECT id FROM site_stats WHERE id = 1")
@@ -302,6 +320,15 @@ def init_db():
                 INSERT INTO site_stats (id, visit_count, start_time, updated_at)
                 VALUES (1, 0, ?, ?)
             ''', (now, now))
+
+        # 初始化音乐配置（如果不存在）
+        cursor.execute("SELECT id FROM music_settings WHERE id = 1")
+        if not cursor.fetchone():
+            now = datetime.now(ZoneInfo('Asia/Shanghai')).isoformat()
+            cursor.execute('''
+                INSERT INTO music_settings (id, tunehub_api_key, updated_at)
+                VALUES (1, '', ?)
+            ''', (now,))
         
         # 创建发货标签分类表
         cursor.execute('''
@@ -422,6 +449,47 @@ def toggle_auth_key(key_id: int) -> bool:
 def verify_admin_password(password: str) -> bool:
     """验证管理员密码"""
     return password == ADMIN_PASSWORD
+
+def get_music_api_key() -> str:
+    """读取服务端存储的 TuneHub API Key"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT tunehub_api_key FROM music_settings WHERE id = 1")
+        row = cursor.fetchone()
+        if not row:
+            return ""
+        return (row["tunehub_api_key"] or "").strip()
+
+def set_music_api_key(api_key: str) -> None:
+    """更新服务端 TuneHub API Key"""
+    now = datetime.now(ZoneInfo('Asia/Shanghai')).isoformat()
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO music_settings (id, tunehub_api_key, updated_at)
+            VALUES (1, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                tunehub_api_key = excluded.tunehub_api_key,
+                updated_at = excluded.updated_at
+        ''', (api_key.strip(), now))
+        conn.commit()
+
+def require_music_api_key() -> str:
+    """确保服务端已配置 TuneHub API Key"""
+    api_key = get_music_api_key()
+    if not api_key:
+        raise HTTPException(status_code=400, detail="服务端尚未配置 TuneHub API Key，请先由管理员保存")
+    return api_key
+
+def sanitize_json_payload(value):
+    """将上游 JSON 中的 NaN/Infinity 清洗为 None，避免 FastAPI 序列化 500。"""
+    if isinstance(value, float):
+        return None if (math.isnan(value) or math.isinf(value)) else value
+    if isinstance(value, list):
+        return [sanitize_json_payload(item) for item in value]
+    if isinstance(value, dict):
+        return {str(key): sanitize_json_payload(item) for key, item in value.items()}
+    return value
 
 def get_valid_key(key: str = Query(..., description="授权码")) -> str:
     """验证授权码的依赖函数"""
@@ -1834,32 +1902,6 @@ def get_shipment_stats(key: str = Depends(get_valid_key)):
             ]
         }
 
-# SPA Route Handling
-FRONTEND_DIST = os.path.join(os.path.dirname(BASE_DIR), "frontend", "dist")
-
-if os.path.exists(os.path.join(FRONTEND_DIST, "assets")):
-    app.mount("/assets", StaticFiles(directory=os.path.join(FRONTEND_DIST, "assets")), name="assets")
-
-@app.get("/{full_path:path}")
-async def serve_spa(full_path: str):
-    # Check if file exists in dist (e.g. vite.svg, robots.txt)
-    file_path = os.path.join(FRONTEND_DIST, full_path)
-    if os.path.exists(file_path) and os.path.isfile(file_path):
-        return FileResponse(file_path)
-        
-    # Catch all: return index.html, unless it looks like an API call
-    if full_path.startswith("api/"):
-        return {"error": "Not Found"}, 404
-    
-    index_file = os.path.join(FRONTEND_DIST, "index.html")
-    if os.path.exists(index_file):
-        return FileResponse(index_file)
-    return "Frontend not built. Please run npm run build in frontend directory.", 404
-
-
-
-
-
 # ==================== 发货标签 API ====================
 
 @app.get("/api/shipment/categories", response_model=List[ShipmentCategoryResponse], tags=["发货标签"])
@@ -2100,6 +2142,152 @@ def get_shipment_stats(key: str = Depends(get_valid_key)):
             "unused_contents": total - used,
             "category_stats": category_stats
         }
+
+# ============ 音乐代理 ============
+@app.get("/api/music/apikey/status")
+def get_music_apikey_status():
+    """查询服务端 TuneHub API Key 配置状态（不返回明文）"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT tunehub_api_key, updated_at FROM music_settings WHERE id = 1")
+        row = cursor.fetchone()
+        key = (row["tunehub_api_key"] if row else "") or ""
+        return {
+            "configured": bool(key.strip()),
+            "updated_at": row["updated_at"] if row else None
+        }
+
+@app.post("/api/music/apikey")
+def save_music_apikey(
+    request: MusicApiKeySaveRequest,
+    admin_token: Optional[str] = Cookie(None)
+):
+    """保存服务端 TuneHub API Key（仅管理员）"""
+    provided_password = (request.password or "").strip()
+    has_admin_cookie = (admin_token == ADMIN_PASSWORD)
+    has_valid_password = verify_admin_password(provided_password) if provided_password else False
+
+    if not has_admin_cookie and not has_valid_password:
+        raise HTTPException(status_code=401, detail="仅管理员可保存 API Key，请输入正确的管理员密码")
+
+    api_key = (request.api_key or "").strip()
+    if not api_key:
+        raise HTTPException(status_code=400, detail="api_key 不能为空")
+
+    set_music_api_key(api_key)
+    return {"success": True, "message": "服务端 API Key 已保存"}
+
+@app.post("/api/music/tunehub/parse")
+def music_tunehub_parse(payload: dict = Body(...)):
+    """服务端代理 TuneHub Parse（使用服务端存储 API Key）"""
+    api_key = require_music_api_key()
+
+    upstream_payload = {
+        "platform": payload.get("platform"),
+        "ids": payload.get("ids"),
+        "quality": payload.get("quality")
+    }
+
+    try:
+        resp = requests.post(
+            TUNEHUB_PARSE_URL,
+            headers={
+                "Content-Type": "application/json",
+                "X-API-Key": api_key
+            },
+            json=upstream_payload,
+            timeout=20
+        )
+        data = resp.json()
+    except requests.exceptions.Timeout:
+        raise HTTPException(status_code=504, detail="TuneHub Parse 请求超时")
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"TuneHub Parse 请求失败: {str(e)}")
+
+    if not resp.ok:
+        message = data.get("message") if isinstance(data, dict) else None
+        raise HTTPException(status_code=resp.status_code, detail=message or f"TuneHub Parse HTTP {resp.status_code}")
+
+    return sanitize_json_payload(data)
+
+@app.get("/api/music/tunehub/methods/{platform}/{function_name}")
+def music_tunehub_methods(platform: str, function_name: str):
+    """服务端代理 TuneHub Methods 配置（使用服务端存储 API Key）"""
+    api_key = require_music_api_key()
+    methods_url = f"{TUNEHUB_METHODS_BASE_URL}/{platform}/{function_name}"
+
+    try:
+        resp = requests.get(
+            methods_url,
+            headers={"X-API-Key": api_key},
+            timeout=20
+        )
+        data = resp.json()
+    except requests.exceptions.Timeout:
+        raise HTTPException(status_code=504, detail="TuneHub Methods 请求超时")
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"TuneHub Methods 请求失败: {str(e)}")
+
+    if not resp.ok:
+        message = data.get("message") if isinstance(data, dict) else None
+        raise HTTPException(status_code=resp.status_code, detail=message or f"TuneHub Methods HTTP {resp.status_code}")
+
+    return sanitize_json_payload(data)
+
+@app.post("/api/music-proxy")
+async def music_proxy(payload: dict = Body(...)):
+    """代理请求到上游音乐平台，解决浏览器 CORS 限制"""
+    url = payload.get("url")
+    method = (payload.get("method") or "GET").upper()
+    headers = payload.get("headers") or {}
+    params = payload.get("params") or {}
+    body = payload.get("body")
+
+    if not url:
+        raise HTTPException(status_code=400, detail="url is required")
+    if not url.startswith(("http://", "https://")):
+        raise HTTPException(status_code=400, detail="仅支持 HTTP/HTTPS 协议")
+
+    try:
+        kwargs = {"params": params, "headers": headers, "timeout": 15}
+        if method != "GET" and body:
+            if isinstance(body, dict):
+                kwargs["json"] = body
+            else:
+                kwargs["data"] = body
+        resp = requests.request(method, url, **kwargs)
+        try:
+            return resp.json()
+        except Exception:
+            return {"_raw": resp.text, "_status": resp.status_code}
+    except requests.exceptions.Timeout:
+        raise HTTPException(status_code=504, detail="上游请求超时")
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"代理请求失败: {str(e)}")
+
+
+# SPA Route Handling
+FRONTEND_DIST = os.path.join(os.path.dirname(BASE_DIR), "frontend", "dist")
+
+if os.path.exists(os.path.join(FRONTEND_DIST, "assets")):
+    app.mount("/assets", StaticFiles(directory=os.path.join(FRONTEND_DIST, "assets")), name="assets")
+
+@app.get("/{full_path:path}")
+async def serve_spa(full_path: str):
+    # Check if file exists in dist (e.g. vite.svg, robots.txt)
+    file_path = os.path.join(FRONTEND_DIST, full_path)
+    if os.path.exists(file_path) and os.path.isfile(file_path):
+        return FileResponse(file_path)
+
+    # API 路径不应走 SPA fallback
+    if full_path.startswith("api/"):
+        raise HTTPException(status_code=404, detail="Not Found")
+
+    index_file = os.path.join(FRONTEND_DIST, "index.html")
+    if os.path.exists(index_file):
+        return FileResponse(index_file)
+    raise HTTPException(status_code=404, detail="Frontend not built. Please run npm run build in frontend directory.")
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8999)

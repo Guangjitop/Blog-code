@@ -11,13 +11,16 @@ function serveHomePlugin(): Plugin {
     name: 'serve-home',
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
+        const rawUrl = req.url || '/'
+        const urlPath = rawUrl.split('?')[0].split('#')[0]
+
         // 如果是 /app/manage/ 路径，让 Vite 处理 React 应用
-        if (req.url?.startsWith('/app/manage')) {
+        if (urlPath.startsWith('/app/manage')) {
           return next()
         }
 
         // 对于 /app/ 或 /app 路径，提供博客主页
-        if (req.url === '/app/' || req.url === '/app') {
+        if (urlPath === '/app/' || urlPath === '/app') {
           const indexPath = path.join(homeDir, 'index.html')
           if (fs.existsSync(indexPath)) {
             res.setHeader('Content-Type', 'text/html')
@@ -27,8 +30,8 @@ function serveHomePlugin(): Plugin {
         }
 
         // 对于 /app/js/* 等静态资源
-        if (req.url?.startsWith('/app/') && !req.url?.startsWith('/app/manage')) {
-          const relativePath = req.url.replace('/app/', '')
+        if (urlPath.startsWith('/app/') && !urlPath.startsWith('/app/manage')) {
+          const relativePath = urlPath.replace('/app/', '')
           const filePath = path.join(homeDir, relativePath)
 
           if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {

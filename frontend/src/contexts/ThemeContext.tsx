@@ -1,22 +1,23 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { Sun, Moon, Waves, Sunset, Trees, Sparkles } from 'lucide-react'
 
 export type Theme = 'light' | 'dark' | 'ocean' | 'sunset' | 'forest' | 'cyberpunk'
 
 interface ThemeContextType {
   theme: Theme
   setTheme: (theme: Theme) => void
-  themes: { value: Theme; label: string; icon: string }[]
+  themes: { value: Theme; label: string; icon: ReactNode }[]
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 
-const THEMES: { value: Theme; label: string; icon: string }[] = [
-  { value: 'light', label: '浅色', icon: '☀️' },
-  { value: 'dark', label: '深色', icon: '🌙' },
-  { value: 'ocean', label: '海洋蓝', icon: '🌊' },
-  { value: 'sunset', label: '日落橙', icon: '🌅' },
-  { value: 'forest', label: '森林绿', icon: '🌲' },
-  { value: 'cyberpunk', label: '赛博朋克', icon: '💜' },
+const THEMES: { value: Theme; label: string; icon: ReactNode }[] = [
+  { value: 'light', label: '浅色', icon: <Sun className="w-4 h-4" /> },
+  { value: 'dark', label: '深色', icon: <Moon className="w-4 h-4" /> },
+  { value: 'ocean', label: '海洋蓝', icon: <Waves className="w-4 h-4" /> },
+  { value: 'sunset', label: '日落橙', icon: <Sunset className="w-4 h-4" /> },
+  { value: 'forest', label: '森林绿', icon: <Trees className="w-4 h-4" /> },
+  { value: 'cyberpunk', label: '赛博朋克', icon: <Sparkles className="w-4 h-4" /> },
 ]
 
 export function ThemeProvider({ children }: { children: ReactNode }) {

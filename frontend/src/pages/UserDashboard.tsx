@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react"
-import { useNavigate, useSearchParams } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,7 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
 import {
   Copy, Trash2, Plus, RefreshCw, Layers, Users, User, Folder, ShieldCheck, Code, Upload, FileText,
-  Calendar, Clock, Edit, Key, Tag, Activity, Settings, Power, Ban, MoreHorizontal, Download
+  Calendar, Clock, Edit, Key, Tag, Activity, Settings, Power, Ban, MoreHorizontal, Download, CheckCircle2,
+  ChevronDown, Terminal
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -18,10 +19,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Tooltip } from "@/components/ui/tooltip"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { useToast } from "@/contexts/ToastContext"
 import { StatsOverview } from "@/components/StatsOverview"
-import { ShipmentManager } from "@/components/ShipmentManager"
 import api from "@/lib/axios"
 import { exportToCSV, exportToTXT, exportToJSON, downloadFile, generateFilename, type ExportAccount } from "@/lib/export-utils"
 
@@ -68,14 +74,7 @@ interface ParsedAccount {
 
 
 export default function UserDashboard() {
-  const [searchParams] = useSearchParams()
-  const tabFromUrl = searchParams.get('tab') || 'accounts'
-  const [activeTab, setActiveTab] = useState(tabFromUrl)
-
-  // 当URL中的tab参数变化时，同步更新activeTab状态
-  useEffect(() => {
-    setActiveTab(tabFromUrl)
-  }, [tabFromUrl])
+  const [activeTab, setActiveTab] = useState('accounts')
   const [stats, setStats] = useState<Stats>({ total_accounts: 0, used_accounts: 0, unused_accounts: 0, category_count: 0 })
   const [categoryStats, setCategoryStats] = useState<CategoryStat[]>([])
   const [accounts, setAccounts] = useState<Account[]>([])
@@ -112,12 +111,51 @@ export default function UserDashboard() {
 
   // Filter state
   const [enabledFilter, setEnabledFilter] = useState<"all" | "enabled" | "disabled">("all")
-
-  // Shipment Labels states
-
+  const [categoryFilter, setCategoryFilter] = useState<"all" | "uncategorized" | string>("all")
+  const [statusFilter, setStatusFilter] = useState<"all" | "used" | "unused">("all")
+  const [searchQuery, setSearchQuery] = useState("")
 
   const navigate = useNavigate()
   const toast = useToast()
+
+  // Filter logic
+  const filteredAccounts = accounts.filter(account => {
+    // Enabled filter
+    if (enabledFilter !== 'all') {
+      const isEnabled = enabledFilter === 'enabled'
+      if (account.is_enabled !== isEnabled) return false
+    }
+
+    // Category filter
+    if (categoryFilter !== 'all') {
+      if (categoryFilter === 'uncategorized') {
+        if (account.category_id !== null) return false
+      } else {
+        if (account.category_id !== parseInt(categoryFilter)) return false
+      }
+    }
+
+    // Status filter
+    if (statusFilter !== 'all') {
+      const isUsed = statusFilter === 'used'
+      if (account.is_used !== isUsed) return false
+    }
+
+    // Search query filter
+    if (searchQuery.trim() !== '') {
+      const query = searchQuery.toLowerCase()
+      if (!account.email.toLowerCase().includes(query)) return false
+    }
+
+    return true
+  }).sort((a, b) => {
+    // Sort unused accounts first, used accounts later
+    if (a.is_used !== b.is_used) {
+      return a.is_used ? 1 : -1
+    }
+    // Then sort by created_at descending (newest first)
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  })
 
   // Get key from cookie helper
   const getKeyFromCookie = () => {
@@ -348,7 +386,7 @@ export default function UserDashboard() {
 
 
 
-  // New Feature Functions
+  // Filter logic and formatters
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "-"
     return new Date(dateString).toLocaleString('zh-CN', {
@@ -360,14 +398,6 @@ export default function UserDashboard() {
       timeZone: 'Asia/Shanghai'
     })
   }
-
-  // Filter accounts based on enabled status
-  const filteredAccounts = accounts.filter(acc => {
-    if (enabledFilter === "all") return true
-    if (enabledFilter === "enabled") return acc.is_enabled !== false
-    if (enabledFilter === "disabled") return acc.is_enabled === false
-    return true
-  })
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -382,26 +412,6 @@ export default function UserDashboard() {
       setSelectedAccountIds(prev => [...prev, id])
     } else {
       setSelectedAccountIds(prev => prev.filter(i => i !== id))
-    }
-  }
-
-  const handleBulkDelete = async () => {
-    if (selectedAccountIds.length === 0) return
-
-    if (!confirm(`确定要删除选中的 ${selectedAccountIds.length} 个账号吗？`)) return
-
-    try {
-      setLoading(true)
-      await Promise.all(selectedAccountIds.map(id =>
-        api.get("/api/admin/accounts/delete", { params: { key: userKey, id } })
-      ))
-      setSelectedAccountIds([])
-      fetchData()
-      toast.success("批量删除成功")
-    } catch {
-      toast.error("部分账号删除失败")
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -500,31 +510,36 @@ export default function UserDashboard() {
 
   const baseUrl = window.location.origin
 
-  // 判断是否是发货标签页面
-  const isShipmentTab = activeTab === 'shipment'
-
   return (
-    <div className="min-h-screen bg-background p-6 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-8">
-        {/* 发货标签页面单独显示，不显示账号管理的标题和统计 */}
-        {isShipmentTab ? (
-          <ShipmentManager authKey={userKey} apiUrl="/api" />
-        ) : (
-          <>
-            <header className="flex justify-between items-center">
+    <div className="min-h-screen bg-background relative overflow-hidden">
+      {/* Background Gradients */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] rounded-full bg-primary/5 blur-[100px]" />
+        <div className="absolute bottom-[-10%] left-[-5%] w-[500px] h-[500px] rounded-full bg-blue-500/5 blur-[100px]" />
+        <div className="absolute top-[20%] left-[20%] w-[300px] h-[300px] rounded-full bg-purple-500/5 blur-[80px]" />
+      </div>
+
+      <div className="relative z-10 p-6 md:p-8 max-w-7xl mx-auto space-y-8">
+            <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-card/50 backdrop-blur-sm p-6 rounded-2xl border border-border/50 shadow-sm">
               <div className="space-y-1">
-                <h1 className="text-3xl font-bold tracking-tight text-gradient">
+                <h1 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-blue-600">
                   多账号管理系统
                 </h1>
-                <p className="text-muted-foreground text-sm">资源管理面板</p>
+                <p className="text-muted-foreground text-sm flex items-center gap-2">
+                  <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  资源管理面板
+                </p>
               </div>
-              <div className="flex gap-2 items-center">
+              <div className="flex gap-3 items-center">
+                <div className="px-4 py-2 bg-background/50 rounded-lg border border-border/50 text-sm text-muted-foreground font-mono">
+                  {new Date().toLocaleDateString()}
+                </div>
                 <Button
                   variant="outline"
                   size="icon"
                   onClick={fetchData}
                   title="刷新数据"
-                  className="hover:bg-accent"
+                  className="hover:bg-primary/10 hover:text-primary transition-colors border-border/50"
                 >
                   <RefreshCw className="h-4 w-4" />
                 </Button>
@@ -534,26 +549,50 @@ export default function UserDashboard() {
             {/* Stats */}
             <StatsOverview stats={stats} categoryStats={categoryStats} />
 
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-              <TabsList>
-                <TabsTrigger value="accounts" className="gap-2"><Users className="h-4 w-4" /> 账号列表</TabsTrigger>
-                <TabsTrigger value="categories" className="gap-2"><Layers className="h-4 w-4" /> 分类管理</TabsTrigger>
-                <TabsTrigger value="get" className="gap-2"><ShieldCheck className="h-4 w-4" /> 获取账号</TabsTrigger>
-                <TabsTrigger value="api" className="gap-2"><Code className="h-4 w-4" /> API 文档</TabsTrigger>
-              </TabsList>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+              <div className="flex items-center justify-between p-1 bg-muted/50 rounded-xl backdrop-blur-sm border border-border/50 w-full md:w-fit">
+                <TabsList className="bg-transparent border-0 p-0 h-auto gap-1">
+                  <TabsTrigger 
+                    value="accounts" 
+                    className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary px-4 py-2 rounded-lg transition-all"
+                  >
+                    <Users className="h-4 w-4" /> 账号列表
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="categories" 
+                    className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary px-4 py-2 rounded-lg transition-all"
+                  >
+                    <Layers className="h-4 w-4" /> 分类管理
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="get" 
+                    className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary px-4 py-2 rounded-lg transition-all"
+                  >
+                    <ShieldCheck className="h-4 w-4" /> 获取账号
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="api" 
+                    className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary px-4 py-2 rounded-lg transition-all"
+                  >
+                    <Code className="h-4 w-4" /> API 文档
+                  </TabsTrigger>
+                </TabsList>
+              </div>
 
               {/* Accounts Tab */}
-              <TabsContent value="accounts">
-                <Card className="theme-transition">
-                  <CardHeader className="flex flex-row items-center justify-between">
+              <TabsContent value="accounts" className="animate-in fade-in-50 slide-in-from-bottom-2 duration-500">
+                <Card className="border-0 shadow-lg bg-card/50 backdrop-blur-sm">
+                  <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4">
                     <div className="flex items-center gap-4">
-                      <CardTitle>账号列表</CardTitle>
+                      <div>
+                        <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                          <Users className="w-5 h-5 text-primary" />
+                          账号列表
+                        </CardTitle>
+                        <CardDescription>管理所有的系统账号资源</CardDescription>
+                      </div>
                       {selectedAccountIds.length > 0 && (
                         <>
-                          <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            批量删除 ({selectedAccountIds.length})
-                          </Button>
                           <Button variant="outline" size="sm" onClick={() => handleBulkToggle(false)}>
                             <Ban className="mr-2 h-4 w-4" />
                             批量禁用
@@ -584,17 +623,48 @@ export default function UserDashboard() {
                         </>
                       )}
                     </div>
-                    <div className="flex gap-2 items-center">
-                      {/* Filter by enabled status */}
-                      <select
-                        className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        value={enabledFilter}
-                        onChange={e => setEnabledFilter(e.target.value as "all" | "enabled" | "disabled")}
-                      >
-                        <option value="all">全部状态</option>
-                        <option value="enabled">已启用</option>
-                        <option value="disabled">已禁用</option>
-                      </select>
+                    <div className="flex gap-2 items-center flex-wrap">
+                      <Input
+                        placeholder="搜索账号..."
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        className="w-[200px] h-9"
+                      />
+                      
+                      <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                        <SelectTrigger className="w-[140px] h-9">
+                          <SelectValue placeholder="所有分类" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">所有分类</SelectItem>
+                          <SelectItem value="uncategorized">未分类</SelectItem>
+                          {categories.map(c => (
+                            <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <Select value={statusFilter} onValueChange={(val: any) => setStatusFilter(val)}>
+                        <SelectTrigger className="w-[140px] h-9">
+                          <SelectValue placeholder="所有使用状态" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">所有使用状态</SelectItem>
+                          <SelectItem value="unused">未使用</SelectItem>
+                          <SelectItem value="used">已使用</SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      <Select value={enabledFilter} onValueChange={(val: any) => setEnabledFilter(val)}>
+                        <SelectTrigger className="w-[140px] h-9">
+                          <SelectValue placeholder="全部启用状态" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">全部启用状态</SelectItem>
+                          <SelectItem value="enabled">启用</SelectItem>
+                          <SelectItem value="disabled">禁用</SelectItem>
+                        </SelectContent>
+                      </Select>
                       {/* Batch Import Dialog */}
                       <Dialog open={isBatchImportOpen} onOpenChange={setIsBatchImportOpen}>
                         <DialogTrigger asChild>
@@ -603,7 +673,14 @@ export default function UserDashboard() {
                           </Button>
                         </DialogTrigger>
                         <DialogContent className="max-w-2xl">
-                          <DialogHeader><DialogTitle>批量导入账号</DialogTitle></DialogHeader>
+                          <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                              <div className="p-2 bg-primary/10 rounded-lg">
+                                <Upload className="w-5 h-5 text-primary" />
+                              </div>
+                              批量导入账号
+                            </DialogTitle>
+                          </DialogHeader>
                           <div className="grid gap-4 py-4">
                             <div className="grid gap-2">
                               <Label>选择分类</Label>
@@ -685,7 +762,14 @@ export default function UserDashboard() {
                           </Button>
                         </DialogTrigger>
                         <DialogContent>
-                          <DialogHeader><DialogTitle>添加账号</DialogTitle></DialogHeader>
+                          <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                              <div className="p-2 bg-primary/10 rounded-lg">
+                                <User className="w-5 h-5 text-primary" />
+                              </div>
+                              添加账号
+                            </DialogTitle>
+                          </DialogHeader>
                           <div className="grid gap-4 py-4">
                             <div className="grid gap-2">
                               <Label>账号</Label>
@@ -716,7 +800,14 @@ export default function UserDashboard() {
                       {/* Edit Account Dialog */}
                       <Dialog open={isEditAccountOpen} onOpenChange={setIsEditAccountOpen}>
                         <DialogContent>
-                          <DialogHeader><DialogTitle>编辑账号</DialogTitle></DialogHeader>
+                          <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                              <div className="p-2 bg-primary/10 rounded-lg">
+                                <Edit className="w-5 h-5 text-primary" />
+                              </div>
+                              编辑账号
+                            </DialogTitle>
+                          </DialogHeader>
                           <div className="grid gap-4 py-4">
                             <div className="grid gap-2">
                               <Label>账号</Label>
@@ -810,51 +901,72 @@ export default function UserDashboard() {
                         </TableHeader>
                         <TableBody>
                           {filteredAccounts.map(acc => (
-                            <TableRow key={acc.id} className={acc.is_enabled === false ? "opacity-50" : ""}>
+                            <TableRow key={acc.id} className={`group hover:bg-muted/50 transition-colors ${acc.is_enabled === false ? "opacity-60 bg-muted/20" : ""}`}>
                               <TableCell>
                                 <input
                                   type="checkbox"
-                                  className="translate-y-[2px]"
+                                  className="translate-y-[2px] w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/20 transition-all cursor-pointer accent-primary"
                                   checked={selectedAccountIds.includes(acc.id)}
                                   onChange={(e) => handleSelectOne(acc.id, e.target.checked)}
                                 />
                               </TableCell>
                               <TableCell>
                                 <div className="flex items-center gap-2">
-                                  <Tooltip content={acc.email} side="top">
-                                    <span className="font-mono cursor-help">******</span>
-                                  </Tooltip>
-                                  <Copy className="h-3 w-3 cursor-pointer text-muted-foreground hover:text-foreground flex-shrink-0" onClick={() => copyToClipboard(acc.email)} />
+                                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500/10 to-indigo-500/10 flex items-center justify-center text-blue-600 font-bold text-xs border border-blue-200/20">
+                                    {acc.email.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="font-medium text-sm text-foreground/90">{acc.email.split('@')[0]}</span>
+                                      <Copy className="h-3 w-3 cursor-pointer text-muted-foreground hover:text-primary transition-colors opacity-0 group-hover:opacity-100" onClick={() => copyToClipboard(acc.email)} />
+                                    </div>
+                                    <span className="text-xs text-muted-foreground">@{acc.email.split('@')[1]}</span>
+                                  </div>
                                 </div>
                               </TableCell>
                               <TableCell>
-                                <div className="flex items-center gap-2">
-                                  <Tooltip content={acc.password} side="top">
-                                    <span className="font-mono cursor-help">******</span>
-                                  </Tooltip>
-                                  <Copy className="h-3 w-3 cursor-pointer text-muted-foreground hover:text-foreground flex-shrink-0" onClick={() => copyToClipboard(acc.password)} />
+                                <div className="flex items-center gap-2 group/pass">
+                                  <div className="font-mono text-xs bg-muted/50 px-2 py-1 rounded border border-border/50 text-muted-foreground group-hover/pass:text-foreground transition-colors">
+                                    ******
+                                  </div>
+                                  <Copy className="h-3 w-3 cursor-pointer text-muted-foreground hover:text-primary transition-colors opacity-0 group-hover:opacity-100" onClick={() => copyToClipboard(acc.password)} />
                                 </div>
                               </TableCell>
-                              <TableCell>{acc.category_name || "未分类"}</TableCell>
                               <TableCell>
-                                <span className={`px-2 py-1 rounded-full text-xs ${acc.is_used ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'}`}>
-                                  {acc.is_used ? "已使用" : "未使用"}
+                                {acc.category_name ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-600 text-[11px] font-medium border border-purple-200/20">
+                                    <Folder className="w-3 h-3" />
+                                    {acc.category_name}
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground text-[11px] italic">未分类</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border ${acc.is_used 
+                                  ? 'bg-red-500/10 text-red-600 border-red-200/20' 
+                                  : 'bg-emerald-500/10 text-emerald-600 border-emerald-200/20'}`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${acc.is_used ? 'bg-red-500' : 'bg-emerald-500'}`} />
+                                  {acc.is_used ? "已用" : "可用"}
                                 </span>
                               </TableCell>
                               <TableCell>
                                 <span
-                                  className={`px-2 py-1 rounded-full text-xs cursor-pointer ${acc.is_enabled !== false ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400'}`}
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border cursor-pointer transition-all hover:scale-105 active:scale-95 ${acc.is_enabled !== false 
+                                    ? 'bg-blue-500/10 text-blue-600 border-blue-200/20 hover:bg-blue-500/20' 
+                                    : 'bg-slate-500/10 text-slate-600 border-slate-200/20 hover:bg-slate-500/20'}`}
                                   onClick={() => handleToggleAccount(acc.id)}
                                   title="点击切换状态"
                                 >
-                                  {acc.is_enabled !== false ? "已启用" : "已禁用"}
+                                  {acc.is_enabled !== false ? <CheckCircle2 className="w-3 h-3" /> : <Ban className="w-3 h-3" />}
+                                  {acc.is_enabled !== false ? "启用" : "禁用"}
                                 </span>
                               </TableCell>
-                              <TableCell className="text-sm text-muted-foreground">
+                              <TableCell className="text-xs text-muted-foreground">
                                 {formatDate(acc.created_at)}
                               </TableCell>
-                              <TableCell className="text-sm text-muted-foreground">
-                                {formatDate(acc.used_at)}
+                              <TableCell className="text-xs text-muted-foreground">
+                                {acc.used_at ? formatDate(acc.used_at) : "-"}
                               </TableCell>
                               <TableCell className="text-right">
                                 {deleteConfirmId === acc.id ? (
@@ -914,16 +1026,26 @@ export default function UserDashboard() {
               </TabsContent >
 
               {/* Categories Tab */}
-              <TabsContent value="categories">
-                <Card className="theme-transition">
-                  <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle>分类管理</CardTitle>
+              <TabsContent value="categories" className="animate-in fade-in-50 slide-in-from-bottom-2 duration-500">
+                <Card className="border-0 shadow-lg bg-card/50 backdrop-blur-sm">
+                  <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4">
+                    <div className="flex items-center gap-2">
+                      <Layers className="w-5 h-5 text-primary" />
+                      <CardTitle>分类管理</CardTitle>
+                    </div>
                     <Dialog open={isAddCategoryOpen} onOpenChange={setIsAddCategoryOpen}>
                       <DialogTrigger asChild>
                         <Button><Plus className="mr-2 h-4 w-4" /> 添加分类</Button>
                       </DialogTrigger>
                       <DialogContent>
-                        <DialogHeader><DialogTitle>添加分类</DialogTitle></DialogHeader>
+                        <DialogHeader>
+                          <DialogTitle className="flex items-center gap-2">
+                            <div className="p-2 bg-primary/10 rounded-lg">
+                              <Folder className="w-5 h-5 text-primary" />
+                            </div>
+                            添加分类
+                          </DialogTitle>
+                        </DialogHeader>
                         <div className="grid gap-4 py-4">
                           <div className="grid gap-2">
                             <Label>名称</Label>
@@ -974,16 +1096,37 @@ export default function UserDashboard() {
                         </TableHeader>
                         <TableBody>
                           {categories.map(cat => (
-                            <TableRow key={cat.id}>
-                              <TableCell className="text-muted-foreground font-mono">{cat.id}</TableCell>
-                              <TableCell className="font-medium">
-                                <div className="flex items-center gap-2">
-                                  <Folder className="h-4 w-4 text-muted-foreground" />
-                                  <span>{cat.name}</span>
+                            <TableRow key={cat.id} className="group hover:bg-muted/50 transition-colors">
+                              <TableCell className="text-muted-foreground font-mono text-xs">#{cat.id}</TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-3">
+                                  <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-500/10 to-pink-500/10 flex items-center justify-center text-purple-600 border border-purple-200/20 group-hover:scale-105 transition-transform">
+                                    <Folder className="w-4 h-4" />
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span className="font-medium text-sm text-foreground/90">{cat.name}</span>
+                                    {cat.description && <span className="text-xs text-muted-foreground line-clamp-1">{cat.description}</span>}
+                                  </div>
                                 </div>
                               </TableCell>
-                              <TableCell className="text-muted-foreground">{cat.description || "-"}</TableCell>
-                              <TableCell>{cat.account_count}</TableCell>
+                              <TableCell className="text-sm text-muted-foreground">
+                                {cat.description ? (
+                                  <span className="line-clamp-1">{cat.description}</span>
+                                ) : (
+                                  <span className="text-muted-foreground/50 italic">暂无描述</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <div className="w-full max-w-[100px] h-1.5 bg-muted rounded-full overflow-hidden">
+                                    <div 
+                                      className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full" 
+                                      style={{ width: `${Math.min((cat.account_count / stats.total_accounts) * 100, 100)}%` }} 
+                                    />
+                                  </div>
+                                  <span className="text-xs font-medium tabular-nums">{cat.account_count}</span>
+                                </div>
+                              </TableCell>
                               <TableCell className="text-right">
                                 {deleteCatConfirmId === cat.id ? (
                                   <div className="flex justify-end gap-1">
@@ -1020,30 +1163,58 @@ export default function UserDashboard() {
               </TabsContent >
 
               {/* Get Account Tab */}
-              <TabsContent value="get">
-                <Card className="max-w-xl mx-auto theme-transition">
-                  <CardHeader className="text-center">
-                    <CardTitle>获取账号</CardTitle>
+              <TabsContent value="get" className="animate-in fade-in-50 slide-in-from-bottom-2 duration-500">
+                <Card className="max-w-xl mx-auto border-0 shadow-lg bg-card/50 backdrop-blur-sm">
+                  <CardHeader className="text-center border-b border-border/40 pb-6">
+                    <div className="flex justify-center mb-4">
+                      <div className="p-3 bg-primary/10 rounded-full">
+                        <ShieldCheck className="w-8 h-8 text-primary" />
+                      </div>
+                    </div>
+                    <CardTitle className="text-2xl">获取账号</CardTitle>
                     <CardDescription>选择分类并提取未使用的账号</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="max-h-[500px] overflow-y-auto scrollbar-custom space-y-4">
-                      <div className="space-y-2">
-                        <Label>选择分类</Label>
-                        <select
-                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                          value={selectedGetCatId}
-                          onChange={e => setSelectedGetCatId(e.target.value)}
+                    <div className="max-h-[500px] overflow-y-auto scrollbar-custom space-y-6">
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label className="text-base">选择分类</Label>
+                          <div className="relative">
+                            <select
+                              className="flex h-12 w-full rounded-lg border border-input bg-background/50 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 transition-shadow appearance-none"
+                              value={selectedGetCatId}
+                              onChange={e => setSelectedGetCatId(e.target.value)}
+                            >
+                              <option value="">✨ 全部分类 (随机)</option>
+                              {categories.map(c => <option key={c.id} value={c.id}>📁 {c.name}</option>)}
+                            </select>
+                            <ChevronDown className="absolute right-3 top-3.5 h-5 w-5 text-muted-foreground pointer-events-none opacity-50" />
+                          </div>
+                        </div>
+                        <Button 
+                          className="w-full h-12 text-base font-medium shadow-lg shadow-primary/20 transition-all hover:scale-[1.02]" 
+                          size="lg" 
+                          onClick={handleGetAccount}
                         >
-                          <option value="">全部分类</option>
-                          {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
+                          <ShieldCheck className="mr-2 h-5 w-5" /> 立即获取账号
+                        </Button>
                       </div>
-                      <Button className="w-full" size="lg" onClick={handleGetAccount}>立即获取</Button>
 
                       {getResult && (
-                        <div className="mt-4 p-4 bg-card border rounded-md font-mono text-sm whitespace-pre-wrap">
-                          {getResult}
+                        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 pt-2">
+                          <div className="flex items-center justify-between mb-2">
+                            <Label>获取结果</Label>
+                            <span className="text-xs text-muted-foreground">点击复制</span>
+                          </div>
+                          <div className="relative group cursor-pointer" onClick={() => copyToClipboard(getResult)}>
+                            <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-blue-500/10 rounded-lg blur opacity-50 group-hover:opacity-100 transition-opacity" />
+                            <div className="relative p-6 bg-card/80 backdrop-blur-sm border rounded-lg font-mono text-sm whitespace-pre-wrap shadow-sm transition-colors group-hover:bg-card/90">
+                              {getResult}
+                              <div className="absolute top-2 right-2 p-1.5 rounded-md bg-background/50 text-muted-foreground opacity-0 group-hover:opacity-100 transition-all">
+                                <Copy className="h-4 w-4" />
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1052,218 +1223,144 @@ export default function UserDashboard() {
               </TabsContent >
 
               {/* API Tab */}
-              <TabsContent value="api">
-                <Card className="theme-transition">
-                  <CardHeader>
-                    <CardTitle>API 文档</CardTitle>
-                    <CardDescription>使用授权码进行 API 调用</CardDescription>
+              <TabsContent value="api" className="animate-in fade-in-50 slide-in-from-bottom-2 duration-500">
+                <Card className="border-0 shadow-lg bg-card/50 backdrop-blur-sm h-full">
+                  <CardHeader className="border-b border-border/40 pb-4">
+                    <div className="flex items-center gap-2">
+                      <Terminal className="w-5 h-5 text-primary" />
+                      <CardTitle>开发者 API</CardTitle>
+                    </div>
+                    <CardDescription>使用 RESTful API 集成账号分发服务</CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <div className="max-h-[500px] overflow-y-auto scrollbar-custom space-y-6">
-                      {/* 授权码显示 */}
-                      <div className="p-4 bg-muted rounded-md flex items-center justify-between">
-                        <div>
-                          <span className="text-sm text-muted-foreground">您的授权码：</span>
-                          <code className="ml-2 font-mono font-bold">{userKey}</code>
-                        </div>
-                        <Button variant="outline" size="sm" onClick={() => copyToClipboard(userKey)}>复制</Button>
-                      </div>
-
-                      {/* 获取账号 API */}
-                      <div className="space-y-3">
-                        <h3 className="font-semibold text-lg">获取账号 API</h3>
-                        <p className="text-sm text-muted-foreground">获取未使用的账号，支持按条件筛选</p>
-                        <code className="block p-3 bg-muted rounded text-sm break-all">
-                          GET {baseUrl}/api/get-account?key={userKey}&category_id=ID&count=1
-                        </code>
-                        <div className="text-sm space-y-1">
-                          <p className="font-medium">参数说明：</p>
-                          <ul className="list-disc list-inside space-y-1 text-muted-foreground ml-2">
-                            <li><code className="bg-muted px-1">key</code> (必填): 授权码</li>
-                            <li><code className="bg-muted px-1">category_id</code> (可选): 分类ID，不传则从全部分类获取</li>
-                            <li><code className="bg-muted px-1">count</code> (可选): 获取数量，默认为1</li>
-                            <li><code className="bg-muted px-1">combinations</code> (可选): 组合方式，值为 cat | colon | count</li>
-                          </ul>
-                        </div>
-                        <div className="text-sm space-y-1">
-                          <p className="font-medium">示例：</p>
-                          <div className="bg-muted p-2 rounded">
-                            <p className="text-muted-foreground">• 获取1个指定分类账号：<code className="text-xs">{baseUrl}/api/get-account?key={userKey}&category_id=1</code></p>
-                            <p className="text-muted-foreground">• 获取3个不限分类账号：<code className="text-xs">{baseUrl}/api/get-account?key={userKey}&count=3</code></p>
-                            <p className="text-muted-foreground">• 组合格式获取：<code className="text-xs">{baseUrl}/api/get-account?key={userKey}&combinations=1,2,1</code></p>
+                  <CardContent className="p-0">
+                    <div className="h-[600px] overflow-y-auto scrollbar-custom">
+                      <div className="p-6 space-y-8">
+                        {/* Auth Key Section */}
+                        <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h3 className="font-semibold flex items-center gap-2 text-primary">
+                              <Key className="w-4 h-4" />
+                              API 授权密钥
+                            </h3>
+                            <Button variant="ghost" size="sm" className="h-8 text-primary hover:text-primary hover:bg-primary/10" onClick={() => copyToClipboard(userKey)}>
+                              <Copy className="w-3.5 h-3.5 mr-1.5" />
+                              复制密钥
+                            </Button>
                           </div>
-                        </div>
-                      </div>
-
-                      {/* 查询账号 API */}
-                      <div className="space-y-3 border-t pt-6">
-                        <h3 className="font-semibold text-lg">查询账号 API</h3>
-                        <p className="text-sm text-muted-foreground">按条件查询账号列表，支持多条件组合</p>
-                        <code className="block p-3 bg-muted rounded text-sm break-all">
-                          GET {baseUrl}/api/query?key={userKey}&is_used=false&category_id=ID&keyword=gmail
-                        </code>
-                        <div className="text-sm space-y-1">
-                          <p className="font-medium">参数说明：</p>
-                          <ul className="list-disc list-inside space-y-1 text-muted-foreground ml-2">
-                            <li><code className="bg-muted px-1">key</code> (必填): 授权码</li>
-                            <li><code className="bg-muted px-1">category_id</code> (可选): 按分类ID筛选</li>
-                            <li><code className="bg-muted px-1">is_used</code> (可选): 是否已使用 true/false</li>
-                            <li><code className="bg-muted px-1">keyword</code> (可选): 关键词搜索（邮箱地址）</li>
-                          </ul>
-                        </div>
-                        <div className="text-sm space-y-1">
-                          <p className="font-medium">示例：</p>
-                          <div className="bg-muted p-2 rounded">
-                            <p className="text-muted-foreground">• 查询未使用账号：<code className="text-xs">{baseUrl}/api/query?key={userKey}&is_used=false</code></p>
-                            <p className="text-muted-foreground">• 按分类查询：<code className="text-xs">{baseUrl}/api/query?key={userKey}&category_id=1</code></p>
-                            <p className="text-muted-foreground">• 关键词搜索：<code className="text-xs">{baseUrl}/api/query?key={userKey}&keyword=gmail</code></p>
+                          <div className="relative group">
+                            <code className="block w-full p-3 rounded-lg bg-background/50 border border-border/50 font-mono text-sm break-all text-foreground/80">
+                              {userKey}
+                            </code>
                           </div>
+                          <p className="text-xs text-muted-foreground">
+                            * 所有 API 请求都需要携带此 <code className="text-primary bg-primary/10 px-1 rounded">key</code> 参数
+                          </p>
                         </div>
-                      </div>
 
-                      {/* 查询账号号密码 API */}
-                      <div className="space-y-3 border-t pt-6">
-                        <h3 className="font-semibold text-lg">查询账号密码 API</h3>
-                        <p className="text-sm text-muted-foreground">根据邮箱地址查询账号密码</p>
-                        <code className="block p-3 bg-muted rounded text-sm break-all">
-                          GET {baseUrl}/api/query/password?key={userKey}&email=xxx@email.com
-                        </code>
-                        <div className="text-sm space-y-1">
-                          <p className="font-medium">参数说明：</p>
-                          <ul className="list-disc list-inside space-y-1 text-muted-foreground ml-2">
-                            <li><code className="bg-muted px-1">key</code> (必填): 授权码</li>
-                            <li><code className="bg-muted px-1">email</code> (必填): 邮箱地址</li>
-                          </ul>
-                        </div>
-                        <div className="text-sm">
-                          <p className="font-medium mb-1">响应示例：</p>
-                          <pre className="bg-muted p-2 rounded text-xs overflow-x-auto">
-                            {`{
-  "success": true,
-  "account": {
-    "id": 1,
-    "email": "xxx@email.com",
-    "password": "yourpassword",
-    "category_name": "Netflix",
-    "is_used": false
-  }
-}`}
-                          </pre>
-                        </div>
-                      </div>
+                        <div className="space-y-8">
+                          {/* 1. Get Account */}
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-3">
+                              <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-200/20 shadow-sm">GET</span>
+                              <code className="text-sm font-semibold text-foreground/90">/api/get-account</code>
+                            </div>
+                            <p className="text-sm text-muted-foreground">获取未使用的账号，支持按分类和数量筛选。</p>
+                            
+                            <div className="relative rounded-lg overflow-hidden border border-border/50 bg-slate-950 dark:bg-slate-900 group shadow-md">
+                              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-white hover:bg-white/10" onClick={() => copyToClipboard(`${baseUrl}/api/get-account?key=${userKey}&category_id=1`)}>
+                                  <Copy className="w-3 h-3" />
+                                </Button>
+                              </div>
+                              <div className="p-4 text-xs font-mono text-slate-300 overflow-x-auto">
+                                <span className="text-purple-400">GET</span> {baseUrl}/api/get-account?<span className="text-orange-400">key</span>={userKey}&<span className="text-orange-400">category_id</span>=1
+                              </div>
+                            </div>
 
-                      {/* 获取总体统计 API */}
-                      <div className="space-y-3 border-t pt-6">
-                        <h3 className="font-semibold text-lg">获取总体统计 API</h3>
-                        <p className="text-sm text-muted-foreground">获取账号与分类的统计信息</p>
-                        <code className="block p-3 bg-muted rounded text-sm break-all">
-                          GET {baseUrl}/api/stats?key={userKey}
-                        </code>
-                        <div className="text-sm space-y-1">
-                          <p className="font-medium">参数说明：</p>
-                          <ul className="list-disc list-inside space-y-1 text-muted-foreground ml-2">
-                            <li><code className="bg-muted px-1">key</code> (必填): 授权码</li>
-                          </ul>
-                        </div>
-                        <div className="text-sm">
-                          <p className="font-medium mb-1">响应示例：</p>
-                          <pre className="bg-muted p-2 rounded text-xs overflow-x-auto">
-                            {`{
-  "total_accounts": 100,
-  "used_accounts": 30,
-  "unused_accounts": 70,
-  "category_count": 5,
-  "usage_rate": "30.0%"
-}`}
-                          </pre>
-                        </div>
-                      </div>
-
-                      {/* 按分类统计 API */}
-                      <div className="space-y-3 border-t pt-6">
-                        <h3 className="font-semibold text-lg">按分类统计 API</h3>
-                        <p className="text-sm text-muted-foreground">获取各分类的账号使用情况统计</p>
-                        <code className="block p-3 bg-muted rounded text-sm break-all">
-                          GET {baseUrl}/api/stats/by-category?key={userKey}
-                        </code>
-                        <div className="text-sm space-y-1">
-                          <p className="font-medium">参数说明：</p>
-                          <ul className="list-disc list-inside space-y-1 text-muted-foreground ml-2">
-                            <li><code className="bg-muted px-1">key</code> (必填): 授权码</li>
-                          </ul>
-                        </div>
-                        <div className="text-sm">
-                          <p className="font-medium mb-1">响应示例：</p>
-                          <pre className="bg-muted p-2 rounded text-xs overflow-x-auto">
-                            {`{
-  "categories": [
-    {
-      "category_id": 1,
-      "category_name": "Netflix",
-      "total": 50,
-      "used": 20,
-      "unused": 30
-    }
-  ]
-}`}
-                          </pre>
-                        </div>
-                      </div>
-
-                      {/* 发货标签 API - 获取内容 */}
-                      <div className="space-y-3 border-t pt-6">
-                        <h3 className="font-semibold text-lg">获取发货内容 API</h3>
-                        <p className="text-sm text-muted-foreground">随机获取一个未使用内容，并自动标记为已使用</p>
-                        <code className="block p-3 bg-muted rounded text-sm break-all">
-                          GET {baseUrl}/api/shipment/get?key={userKey}&category_id=ID
-                        </code>
-                        <div className="text-sm space-y-1">
-                          <p className="font-medium">参数说明：</p>
-                          <ul className="list-disc list-inside space-y-1 text-muted-foreground ml-2">
-                            <li><code className="bg-muted px-1">key</code> (必填): 授权码</li>
-                            <li><code className="bg-muted px-1">category_id</code> (可选): 指定分类ID，不传则从所有分类中随机获取</li>
-                          </ul>
-                        </div>
-                        <div className="text-sm">
-                          <p className="font-medium mb-1">响应说明：</p>
-                          <div className="bg-muted p-2 rounded text-xs space-y-2">
-                            <p>成功响应（状态码 200）：直接返回内容文本（纯文本格式）</p>
-                            <p className="text-red-500">失败响应（状态码 404）：{"{\"detail\": \"没有可用的内容\"}"} 或其他错误信息</p>
+                            <div className="rounded-lg border border-border/50 overflow-hidden">
+                              <table className="w-full text-sm text-left">
+                                <thead className="bg-muted/50 text-muted-foreground text-[10px] uppercase tracking-wider">
+                                  <tr>
+                                    <th className="px-4 py-2 font-medium">参数</th>
+                                    <th className="px-4 py-2 font-medium">必选</th>
+                                    <th className="px-4 py-2 font-medium">说明</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-border/50">
+                                  <tr className="bg-card/50">
+                                    <td className="px-4 py-2 font-mono text-xs text-primary">key</td>
+                                    <td className="px-4 py-2 text-red-500 text-xs font-medium">是</td>
+                                    <td className="px-4 py-2 text-muted-foreground text-xs">授权密钥</td>
+                                  </tr>
+                                  <tr className="bg-card/50">
+                                    <td className="px-4 py-2 font-mono text-xs">category_id</td>
+                                    <td className="px-4 py-2 text-muted-foreground text-xs">否</td>
+                                    <td className="px-4 py-2 text-muted-foreground text-xs">分类 ID (默认随机)</td>
+                                  </tr>
+                                  <tr className="bg-card/50">
+                                    <td className="px-4 py-2 font-mono text-xs">count</td>
+                                    <td className="px-4 py-2 text-muted-foreground text-xs">否</td>
+                                    <td className="px-4 py-2 text-muted-foreground text-xs">获取数量 (默认 1)</td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
                           </div>
-                        </div>
-                      </div>
 
-                      {/* 发货标签 API - 统计信息 */}
-                      <div className="space-y-3 border-t pt-6">
-                        <h3 className="font-semibold text-lg">获取发货统计 API</h3>
-                        <p className="text-sm text-muted-foreground">获取发货标签的总体统计与分类统计</p>
-                        <code className="block p-3 bg-muted rounded text-sm break-all">
-                          GET {baseUrl}/api/shipment/stats?key={userKey}
-                        </code>
-                        <div className="text-sm space-y-1">
-                          <p className="font-medium">参数说明：</p>
-                          <ul className="list-disc list-inside space-y-1 text-muted-foreground ml-2">
-                            <li><code className="bg-muted px-1">key</code> (必填): 授权码</li>
-                          </ul>
-                        </div>
-                        <div className="text-sm">
-                          <p className="font-medium mb-1">响应示例：</p>
-                          <pre className="bg-muted p-2 rounded text-xs overflow-x-auto">
-                            {`{
-  "total_contents": 100,
-  "used_contents": 20,
-  "unused_contents": 80,
-  "category_stats": [
-    {
-      "category_id": 1,
-      "category_name": "激活码",
-      "total": 50,
-      "used": 10,
-      "unused": 40
-    }
-  ]
-}`}
-                          </pre>
+                          {/* 2. Query Account */}
+                          <div className="space-y-3 pt-4 border-t border-border/40">
+                            <div className="flex items-center gap-3">
+                              <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-blue-500/10 text-blue-600 border border-blue-200/20 shadow-sm">GET</span>
+                              <code className="text-sm font-semibold text-foreground/90">/api/query</code>
+                            </div>
+                            <p className="text-sm text-muted-foreground">多条件查询账号列表。</p>
+                            
+                            <div className="relative rounded-lg overflow-hidden border border-border/50 bg-slate-950 dark:bg-slate-900 group shadow-md">
+                              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-white hover:bg-white/10" onClick={() => copyToClipboard(`${baseUrl}/api/query?key=${userKey}&keyword=gmail`)}>
+                                  <Copy className="w-3 h-3" />
+                                </Button>
+                              </div>
+                              <div className="p-4 text-xs font-mono text-slate-300 overflow-x-auto">
+                                <span className="text-purple-400">GET</span> {baseUrl}/api/query?<span className="text-orange-400">key</span>={userKey}&<span className="text-orange-400">keyword</span>=gmail
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 3. Query Password */}
+                          <div className="space-y-3 pt-4 border-t border-border/40">
+                            <div className="flex items-center gap-3">
+                              <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-purple-500/10 text-purple-600 border border-purple-200/20 shadow-sm">GET</span>
+                              <code className="text-sm font-semibold text-foreground/90">/api/query/password</code>
+                            </div>
+                            <p className="text-sm text-muted-foreground">查询指定邮箱的密码。</p>
+                            
+                            <div className="relative rounded-lg overflow-hidden border border-border/50 bg-slate-950 dark:bg-slate-900 group shadow-md">
+                              <div className="p-4 text-xs font-mono text-slate-300 overflow-x-auto">
+                                <span className="text-purple-400">GET</span> {baseUrl}/api/query/password?<span className="text-orange-400">key</span>={userKey}&<span className="text-orange-400">email</span>=example@mail.com
+                              </div>
+                            </div>
+                            <div className="rounded-lg border border-border/50 bg-card/30 p-3">
+                              <pre className="text-[10px] font-mono text-muted-foreground overflow-x-auto">
+                                {`{ "success": true, "account": { "email": "...", "password": "..." } }`}
+                              </pre>
+                            </div>
+                          </div>
+
+                          {/* 4. Stats */}
+                          <div className="space-y-3 pt-4 border-t border-border/40">
+                            <div className="flex items-center gap-3">
+                              <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-blue-500/10 text-blue-600 border border-blue-200/20 shadow-sm">GET</span>
+                              <code className="text-sm font-semibold text-foreground/90">/api/stats</code>
+                            </div>
+                            <p className="text-sm text-muted-foreground">获取系统总体统计信息。</p>
+                            <div className="relative rounded-lg overflow-hidden border border-border/50 bg-slate-950 dark:bg-slate-900 group shadow-md">
+                              <div className="p-4 text-xs font-mono text-slate-300 overflow-x-auto">
+                                <span className="text-purple-400">GET</span> {baseUrl}/api/stats?<span className="text-orange-400">key</span>={userKey}
+                              </div>
+                            </div>
+                          </div>
+
                         </div>
                       </div>
                     </div>
@@ -1271,8 +1368,6 @@ export default function UserDashboard() {
                 </Card>
               </TabsContent>
             </Tabs>
-          </>
-        )}
       </div>
     </div>
   )
